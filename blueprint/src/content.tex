@@ -5,3 +5,152 @@
 % If you want to split the blueprint content into several files then
 % the current file can be a simple sequence of \input. Otherwise It
 % can start with a \section or \chapter for instance.
+
+
+For the definitions about divisors, let $X$ be a noetherian integral scheme
+which is regular in codimension 1 meaning all local rings of codimension 1 are
+regular (where regular means minimal number of generators for maximal ideal is
+equal to Krull dimension).
+
+\begin{definition}\label{def:primediv}
+  A prime divisor on $X$ is an irreducible subvariety of $X$ with codimension $1$.
+  \end{definition}
+
+\begin{definition}\label{def:weil}
+  A Weil Divisor on $X$ is a formal $\mathbb{Z}$-linear combination of prime divisors of $X$. We denote the free abelian group consisting of all the Weil divisors by $\Div(X)$.
+\end{definition}
+
+\begin{definition}[Hartshorne p.140]\label{def:constratsheaf}
+  Let $X$ be a scheme. For each open affine subset $U = Spec A$,
+  let $S$ be the set of elements of $A$ which are not zero divisors,
+  and let $K(U)$ be the localization of $A$ by the multiplicative system $S$.
+
+  We call $K(U)$ the total quotient ring of $A$.
+  For each open set $U$, let $S(U)$ denote the set of elements of
+  $\Gamma(U, \reg_X)$ which are not zero divisors in each local ring $\reg_x$ for $x \in U$.
+  Then the rings $S(U)^{-1} \Gamma(U,\reg_X)$ form a presheaf,
+  whose associated sheaf of rings $X$ we call the sheaf of total quotient rings
+  of $\reg$. On an arbitrary scheme, the sheaf $\mathscr{K}$ replaces the concept
+  of function field of an integral scheme.
+
+  We denote by $\mathscr{K}^*$ the sheaf (of multiplicative groups)
+  of invertible elements in the sheaf of rings $\mathscr{K}$.
+
+  Similarly $\reg^*$ is the sheaf of invertible elements in $\reg$.
+\end{definition}
+
+\begin{definition}[Hartshorne p.141]\label{def:cartierdivisor}
+A Cartier divisor is a global section of the sheaf $\mathscr{K}^* / \reg^*$.
+A Cartier divisor is principal if it is in the image of the natural map
+$\Gamma(X,\mathscr{K}) \rightarrow T(X, \mathscr{K}^* / \reg^*)$.
+
+Two Cartier divisors are linearly equivalent if their difference is principal.
+(Although the group operation on $\mathscr{K}^* / \reg^*$ is multiplication,
+we will use the language of additive groups when speaking of Cartier divisors,
+so as to preserve the analogy with Weil divisors.)
+\end{definition}
+
+NEED LINE BUNDLE DIVISOR EQUIVALENCE - I.E. LINE BUNDLE
+ASSOCIATED WITH A DIVISOR SO WE CAN DO
+
+NEED AN EQUIVALENCE OF DIVISOR DEFINITIONS BECAUSE LINE BUNDLE
+DIVISOR EQUIVALENCE REALLY NEEDS CARTIER BUT DOING INDUCTION BY
+ADDING POINTS TO THE DIVISOR IS REALLY USING A WEIL DIVISOR
+
+
+NEED A COHOMOLOGY DEFINITION
+
+NEED:-
+- COHOMOLOGY LONG EXACT SEQUENCE FOR EULER CHAR
+
+- NEED TENSOR PRODUCT OF SHEAVES AND
+THAT TENSORING WITH LINE BUNDLES IS EXACT
+
+-
+
+
+
+\begin{lemma}[Skyscraper Sheaf has Vanishing Higher Cohomology]\label{lem:skyscrapervanishing}
+Given a skyscraper sheaf $\mathscr{F}$ on a topological space $Y$,
+for all $i \in \mathbb{N} \setminus \{0\}$, $H^i(\mathscr{F}, Y) = 0$.
+\end{lemma}
+\begin{proof}
+Hartshorne Chap 3 Prop 2.5 p.208 shows this by showing skscraper sheaves are flasque.
+I think I prefer showing that given any cover, can always refine it so only one set
+in the cover contains the point where the sheaf is supported. Hence the sheaf
+has no sections on intersections of sheaves of the cover and so neessarily has
+vanishing higher cohomology.
+\end{proof}
+
+\begin{theorem}[Euler Characteristic Addititive] \label{thm:eulercharadditive}
+  Given a short exact sequence of sheaves:
+  \[
+  0 \rightarrow \mathscr{F}' \rightarrow \mathscr{F} \rightarrow \mathscr{F}'' \rightarrow 0,
+  \]
+  the Euler characteristic is additive, that is:
+  \[
+  \chi(\mathscr{F}) = \chi(\mathscr{F}') + \chi(\mathscr{F}'').
+  \]
+\end{theorem}
+  \begin{proof}[Proof sketch]
+    This follows by first taking the corresponding long exact sequence of cohomology groups
+    \[
+    \begin{split}
+    0 &\xrightarrow{\varphi_0'} H^0(X, \mathscr{F'}) \xrightarrow{\varphi_0}  H^0(X, \mathscr{F}) \xrightarrow{\varphi_0''}  H^0(X, \mathscr{F''})\\
+    &\xrightarrow{\varphi_1'} H^1(X, \mathscr{F'}) \xrightarrow{\varphi_1} H^1(X, \mathscr{F}) \xrightarrow{\varphi_1''} H^1(X, \mathscr{F''}) \xrightarrow{\varphi_2'} ....\\
+    \end{split}
+    \]
+    We then see that this splits as the following set of short exact sequences:
+    \[
+    0 \rightarrow \coker(\varphi_p') \xrightarrow{\varphi_p} H^p(X, \mathscr{F}) \xrightarrow{\varphi_p''} \im(\varphi_p'') \rightarrow 0.
+    \]
+    But since these are vector spaces, the dimension on these short exact sequences is additive, and so the alternating sum of the dimensions of our cohomology groups is $0$. Rearranging this identity then gives the desired result.
+\end{proof}
+
+\begin{theorem}[Riemann-Roch for curves]\label{thm:riemannroch}
+  Given a smooth projective curve $X$ over an algebraically closed field $k$ and a divisor $D$ on $X$, the following identity holds:
+  \[
+  \chi(\reg_X(D)) = \chi(\reg_X) + \deg D
+  \]
+
+  In this context, the word divisor here is implying that what definition we use
+  doesn't make a difference (which is mainly where the smooth and projective
+  assumptions are actually used).
+
+  For this, we probably want to cover some theory about divisors and line bundles
+  in here.
+  \end{theorem}
+  \begin{proof}
+  We will prove this by an induction argument on $D$ noting that any divisor $D$ can be built up by adding or subtracting points $P$ starting from the divisor $0$. To that end, we will first note that $\chi(\reg_X(0)) = \chi(\reg_X) + 0$, hence our formula holds for the $0$ divisor. Now, for our inductive case, suppose our formula holds for a divisor $D$, i.e. that $\chi(\reg_X(D)) = \chi(\reg_X) + \deg D$. We'll try to show it must then hold for $D + P$, where $P$ is the divisor of a point. Then, we recall that we have the following exact sequence:
+
+  \[
+  0 \rightarrow \reg_X(-P) \rightarrow \reg_X \rightarrow \reg_P \rightarrow 0.
+  \]
+  Now, we can twist this exact sequence by $\reg_X(D+P)$, noting that since $\reg_X(D+P)$ is a line bundle, $\reg_X(D+P) \otimes_{\reg_X} \reg_P \simeq \reg_X \otimes_{\reg_X} \reg_P \simeq \reg_P$. So, we end up with the following exact sequence:
+
+  \[
+  0 \rightarrow \reg_X(D) \rightarrow \reg_X(D + P) \rightarrow \reg_P \rightarrow 0
+  \]
+
+  Hence, we have by \autoref{thm:eulercharadditive} that $\chi(\reg_X(D+P)) = \chi(\reg_X(D)) + \chi(\reg_{X, p})$. Now, we know from \autoref{lem:skyscrapervanishing} that $\chi(\reg_{X, p}) = 1$, hence:
+  \[
+  \begin{split}
+  \chi(\reg_X(D+P)) &= \chi(\reg_X(D)) + 1,\\
+  &= \chi(\reg_X) + \deg(D) + 1, \text{ by inductive hypothesis,}\\
+  &= \chi(\reg_X) + \deg(D + P).\\
+  \end{split}
+  \]
+  Now, we have another inductive case where we know our property holds for some divisor $D$, and we need to show it holds for $D - P$. The argument for this case is very similar, instead twisting our initial exact sequence by $\reg_X(D)$ to get:
+  \[
+  0 \rightarrow \reg_X(D-P) \rightarrow \reg_X(D) \rightarrow \reg_P \rightarrow 0.
+  \]
+  Then, again using the additivity of the Euler characteristic, we get:
+  \[
+  \begin{split}
+  \chi(\reg_X(D-P)) &= \chi(\reg_X(D)) -1,\\
+  &= \chi(\reg_X) + \deg(D) - 1, \text{ by inductive hypothesis,}\\
+  &= \chi(\reg_X) + \deg(D - P).\\
+  \end{split}
+  \]
+  Thus, by induction, our property is proven.
+  \end{proof}
