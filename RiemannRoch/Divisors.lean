@@ -8,11 +8,15 @@ import Mathlib.CategoryTheory.Iso
 import Mathlib.Order.Hom.Basic
 import Mathlib.AlgebraicGeometry.Properties
 import RiemannRoch.ModuleLength
+import RiemannRoch.Proper
+import RiemannRoch.InvertibleSheaf
 import Mathlib.Geometry.RingedSpace.PresheafedSpace
 import Mathlib.Topology.Sheaves.Presheaf
 import Mathlib.CategoryTheory.Sites.Sheafification
 import Mathlib.AlgebraicGeometry.Sites.BigZariski
 import Mathlib.CategoryTheory.Sites.Over
+import Mathlib.AlgebraicGeometry.Noetherian
+import Mathlib.RingTheory.UniqueFactorizationDomain
 
 variable (Y : AlgebraicGeometry.Scheme)
 #check Y.carrier
@@ -77,6 +81,10 @@ lemma Bijection_Preimage_Singleton {X Y : Type _} (f : X → Y) (h : Function.Bi
 }
 
 #check lt_iff_le_not_le
+
+/-
+IN LIBRARY ALREADY
+-/
 theorem krullDimIsomInvariant (X : Type _) (Y : Type _)
 [Preorder X] [Preorder Y] (f : X ≃o Y) : krullDim X = krullDim Y := by{
   simp[krullDim]
@@ -334,3 +342,31 @@ def PrincipalWeilDivisor {X : Scheme} [IsIntegral X] (f : FieldOfFractionsOfSche
 structure IsPrincipal {X : Scheme} [IsIntegral X] (D : WeilDivisor X) where
   f : FieldOfFractionsOfScheme X
   eq : D = (PrincipalWeilDivisor f)
+
+
+axiom LinearEquivalentWeil (X : Scheme) : WeilDivisor X → WeilDivisor X → Prop
+
+axiom LineBundleOfDivisor {X : Scheme} (D : WeilDivisor X) : TopCat.Presheaf CommRingCat X.carrier
+
+instance divisorClassSetoid (X : Scheme) : Setoid (WeilDivisor X) where
+  r := LinearEquivalentWeil X
+  iseqv := sorry
+
+def WeilDivisorClassGroup (X : Scheme) := Quotient (divisorClassSetoid X)
+
+axiom WeilDivisorClassGroupInstance (X : Scheme) : CommGroup (WeilDivisorClassGroup X)
+
+attribute [instance] WeilDivisorClassGroupInstance
+
+
+
+class IsLocallyUFD (X : Scheme) : Prop where
+  domain : ∀ (x : X), IsDomain (X.presheaf.stalk x)
+  ufm : ∀ (x : X), UniqueFactorizationMonoid (X.presheaf.stalk x)
+
+
+/-
+Isomorphism between Cl(X) and Pic(X) for an Integral Noetheian scheme whose local rings are all unique
+factorisation domains. The definition of this will almost certainly go via Cartier divisors,
+-/
+def LineBundleDivisorEquivalence (X : Scheme) [IsIntegral X] [IsNoetherian X] [IsLocallyUFD X] : WeilDivisorClassGroup X ≃* PicardGroup X := sorry
