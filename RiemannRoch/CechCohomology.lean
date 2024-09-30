@@ -22,7 +22,7 @@ import Mathlib.Algebra.Homology.HomologicalComplex
 import Mathlib.CategoryTheory.Category.Basic
 import Mathlib.Algebra.Homology.ShortComplex.HomologicalComplex
 -/
-import mathlib
+import Mathlib
 
 open AlgebraicGeometry
 open SheafOfModules
@@ -61,6 +61,11 @@ module
 axiom CechCohomologyQCoh [IsSeparated (𝟙 X)] (F : SheafOfModules X.ringCatSheaf) [IsQuasicoherent F] (i : ℕ) : AddCommGrp
 
 /- Serre finiteness and vanishing (Hartshorne theorem 5.2) -/
+
+def ProjectiveSpace (R : CommRingCat) (n : ℕ) : Scheme.{u} := sorry
+
+def TwistingSheaf {m : ℕ} {R : CommRingCat} (n : ℕ) : SheafOfModules (ProjectiveSpace R n).ringCatSheaf := sorry
+
 
 
 

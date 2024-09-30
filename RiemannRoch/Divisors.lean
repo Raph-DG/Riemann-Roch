@@ -1,3 +1,4 @@
+/-
 import Mathlib.Order.KrullDimension
 import Mathlib.Topology.KrullDimension
 import Mathlib.AlgebraicGeometry.Scheme
@@ -17,6 +18,11 @@ import Mathlib.AlgebraicGeometry.Sites.BigZariski
 import Mathlib.CategoryTheory.Sites.Over
 import Mathlib.AlgebraicGeometry.Noetherian
 import Mathlib.RingTheory.UniqueFactorizationDomain
+-/
+import Mathlib
+import RiemannRoch.ModuleLength
+import RiemannRoch.Proper
+import RiemannRoch.InvertibleSheaf
 
 variable (Y : AlgebraicGeometry.Scheme)
 #check Y.carrier
@@ -24,6 +30,7 @@ variable (Y : AlgebraicGeometry.Scheme)
 
 open AlgebraicGeometry
 open CategoryTheory
+open SheafOfModules
 open Opposite.op
 
 noncomputable
@@ -80,10 +87,20 @@ lemma Bijection_Preimage_Singleton {X Y : Type _} (f : X → Y) (h : Function.Bi
   exact h.1 fseq
 }
 
+lemma Bijection_Preimage_Inverse_Of_Image {X Y : Type _} (f : X → Y) (h : Function.Bijective f) : ∀ (u : Set X), f ⁻¹' (f '' u) = u := by
+  exact fun u ↦ Eq.symm ((fun hf ↦ (Set.eq_preimage_iff_image_eq hf).mpr) h rfl)
+
+lemma Bijection_Image_Inverse_Of_Preimage {X Y : Type _} (f : X → Y) (h : Function.Bijective f) : ∀ (u : Set Y), f '' (f ⁻¹' u) = u := by
+  exact fun u ↦ Eq.symm ((fun hf ↦ (Set.preimage_eq_iff_eq_image hf).mp) h rfl)
+
 #check lt_iff_le_not_le
 
+
+
+
+
 /-
-IN LIBRARY ALREADY
+IN LIBRARY ALREADY: krullDim_eq_of_orderIso f
 -/
 theorem krullDimIsomInvariant (X : Type _) (Y : Type _)
 [Preorder X] [Preorder Y] (f : X ≃o Y) : krullDim X = krullDim Y := by{
@@ -126,6 +143,63 @@ theorem krullDimIsomInvariant (X : Type _) (Y : Type _)
 }
 
 
+def TopologicalSpace_Induced_Map_On_Irreducible_Closeds {X Y : Type _} [TopologicalSpace X] [TopologicalSpace Y]
+  (f : X → Y) (cont : Continuous f) (closed : IsClosedMap f) : TopologicalSpace.IrreducibleCloseds X → TopologicalSpace.IrreducibleCloseds Y := fun u ↦ {
+      carrier := f '' u
+      is_irreducible' := by {
+        simp[IsIrreducible,IsPreirreducible]
+        constructor
+        · exact u.is_irreducible'.1
+        · intro u1 v opu1 opv nontrivintu1 nontrivintv
+          let oppreu1 := cont.isOpen_preimage u1 opu1
+          let opprev := cont.isOpen_preimage v opv
+          exact u.is_irreducible'.2 (f ⁻¹' u1) (f ⁻¹' v) oppreu1 opprev nontrivintu1 nontrivintv
+      }
+      is_closed' := by exact closed u u.is_closed'
+    }
+
+lemma Injective_Maps_Induce_StrictMono_Of_Image {X Y : Type _} {U V : Set X} (f : X → Y) (inj : Function.Injective f) : U ⊂ V → f '' (U) ⊂ f '' (V) := by
+  intro UlV
+  let nonstrict : (f '' U ⊆ f '' V) := by {
+    simp
+    rw[Function.Injective.preimage_image]
+    exact subset_of_ssubset UlV
+    exact inj
+  }
+  let noneq : (f '' U ≠ f '' V) := by {
+    simp only [ne_eq]
+    intro eq
+    obtain ⟨elemOnlyInV, pf⟩ := Set.exists_of_ssubset UlV
+    let elemOnlyInVInImageOfU : f elemOnlyInV ∈ f '' U := by {
+      let obfact : f elemOnlyInV ∈ f '' V := by {
+        simp only [Set.mem_image]
+        use elemOnlyInV
+        exact And.symm (And.imp_left (fun a ↦ rfl) (id (And.symm pf)))
+      }
+      rw[eq]
+      exact obfact
+    }
+    obtain ⟨elemOfU, pfofU⟩ := elemOnlyInVInImageOfU
+    let cont : elemOfU = elemOnlyInV := inj pfofU.2
+    rw[←cont] at pf
+    exact pf.2 pfofU.1
+  }
+  exact HasSubset.Subset.ssubset_of_ne nonstrict noneq
+
+theorem TopologicalSpace_Induced_Map_On_Irreducible_Closeds_Injective_StrictMono {X Y : Type _} [TopologicalSpace X] [TopologicalSpace Y]
+  (f : X → Y) (cont : Continuous f) (closed : IsClosedMap f) (inj : Function.Injective f) : StrictMono (TopologicalSpace_Induced_Map_On_Irreducible_Closeds f cont closed) := by
+  intro U V
+  exact Injective_Maps_Induce_StrictMono_Of_Image f inj
+
+/-
+theorem topologicalKrullDim_le_of_closed_injection {X Y : Type _} [TopologicalSpace X] [TopologicalSpace Y]
+  (f : X → Y) (cont : Continuous f) (closed : IsClosedMap f) (inj : Function.Injective f) : topologicalKrullDim X ≤ topologicalKrullDim Y := by
+  krullDim_le_of_strictMono f (TopologicalSpace_Induced_Map_On_Irreducible_Closeds_Injective_StrictMono f cont closed)
+-/
+/-krullDim_le_of_strictMono-/
+
+
+
 theorem topologicalKrullDimIsomInvariant (X : Type _) (Y : Type _)
  [TopologicalSpace X] [TopologicalSpace Y] (f : X → Y)
  (h : IsHomeomorph f) : topologicalKrullDim X = topologicalKrullDim Y := by
@@ -136,11 +210,11 @@ theorem topologicalKrullDimIsomInvariant (X : Type _) (Y : Type _)
       is_irreducible' := by {
         simp[IsIrreducible,IsPreirreducible]
         constructor
-        exact u.is_irreducible'.1
-        intro u1 v opu1 opv nontrivintu1 nontrivintv
-        let oppreu1 := h.continuous.isOpen_preimage u1 opu1
-        let opprev := h.continuous.isOpen_preimage v opv
-        exact u.is_irreducible'.2 (f ⁻¹' u1) (f ⁻¹' v) oppreu1 opprev nontrivintu1 nontrivintv
+        · exact u.is_irreducible'.1
+        · intro u1 v opu1 opv nontrivintu1 nontrivintv
+          let oppreu1 := h.continuous.isOpen_preimage u1 opu1
+          let opprev := h.continuous.isOpen_preimage v opv
+          exact u.is_irreducible'.2 (f ⁻¹' u1) (f ⁻¹' v) oppreu1 opprev nontrivintu1 nontrivintv
       }
       is_closed' := by {
         let k : IsClosedMap f := IsHomeomorph.isClosedMap h
@@ -152,28 +226,28 @@ theorem topologicalKrullDimIsomInvariant (X : Type _) (Y : Type _)
       is_irreducible' := by {
         simp[IsIrreducible,IsPreirreducible]
         constructor
-        let p := v.is_irreducible'.1
-        obtain ⟨elemofv,pf⟩ := p
-        obtain ⟨q, pf2⟩ := h.bijective.2 elemofv
-        use q
-        simp
-        rw[pf2]
-        exact pf
-        intro u1 u2 opu1 opu2 nontrivintu1 nontrivintu2
-        let opimu1 := (IsHomeomorph.isOpenMap h) u1 opu1
-        let opimu2 := (IsHomeomorph.isOpenMap h) u2 opu2
-        let nontrivintimu1 : (v.carrier ∩ f '' u1).Nonempty := by {
-          obtain ⟨l, p⟩ := nontrivintu1
-          use f l
-          refine Set.mem_preimage.mp ?h.a
+        · let p := v.is_irreducible'.1
+          obtain ⟨elemofv,pf⟩ := p
+          obtain ⟨q, pf2⟩ := h.bijective.2 elemofv
+          use q
           simp
-          simp at p
-          constructor
-          exact p.1
-          use l
-          exact ⟨p.2, rfl⟩
+          rw[pf2]
+          exact pf
+        · intro u1 u2 opu1 opu2 nontrivintu1 nontrivintu2
+          let opimu1 := (IsHomeomorph.isOpenMap h) u1 opu1
+          let opimu2 := (IsHomeomorph.isOpenMap h) u2 opu2
+          let nontrivintimu1 : (v.carrier ∩ f '' u1).Nonempty := by {
+            obtain ⟨l, p⟩ := nontrivintu1
+            use f l
+            refine Set.mem_preimage.mp ?h.a
+            simp
+            simp at p
+            constructor
+            exact p.1
+            use l
+            exact ⟨p.2, rfl⟩
         }
-        let nontrivintimu2 : (v.carrier ∩ f '' u2).Nonempty := by {
+          let nontrivintimu2 : (v.carrier ∩ f '' u2).Nonempty := by {
           obtain ⟨l, p⟩ := nontrivintu2
           use f l
           refine Set.mem_preimage.mp ?h.b
@@ -184,40 +258,40 @@ theorem topologicalKrullDimIsomInvariant (X : Type _) (Y : Type _)
           use l
           exact ⟨p.2, rfl⟩
         }
-        let m := v.is_irreducible'.2 (f '' u1) (f '' u2) opimu1 opimu2 nontrivintimu1 nontrivintimu2
-        obtain ⟨r, p⟩ := m
-        let pir := f ⁻¹' {r}
+          let m := v.is_irreducible'.2 (f '' u1) (f '' u2) opimu1 opimu2 nontrivintimu1 nontrivintimu2
+          obtain ⟨r, p⟩ := m
+          let pir := f ⁻¹' {r}
         /-
         let j := (Equiv.ofBijective f h.bijective).symm.bijective.2
         -/
-        let j := h.bijective.2 r
-        let nepir : pir.Nonempty := by {
-          obtain ⟨a, far⟩ := j
-          use a
-          exact far
+          let j := h.bijective.2 r
+          let nepir : pir.Nonempty := by {
+            obtain ⟨a, far⟩ := j
+            use a
+            exact far
         }
-        obtain ⟨elem, pf⟩ := nepir
-        use elem
-        simp
-        constructor
-        let felem : f elem = r := pf
-        rw[felem]
-        exact p.1
-        constructor
-        obtain ⟨ru1, w⟩  := p.2.1
-        obtain ⟨elem', sameaselem⟩ := Bijection_Preimage_Singleton f h.bijective r
-        rw[sameaselem.2 elem pf]
-        let alpf := w.1
-        let ru1inpi : ru1 ∈ f ⁻¹' {r} := Set.mem_of_mem_inter_right w
-        rw[sameaselem.2 ru1 ru1inpi] at alpf
-        exact alpf
-        obtain ⟨ru2, w⟩  := p.2.2
-        obtain ⟨elem', sameaselem⟩ := Bijection_Preimage_Singleton f h.bijective r
-        rw[sameaselem.2 elem pf]
-        let alpf := w.1
-        let ru1inpi : ru2 ∈ f ⁻¹' {r} := Set.mem_of_mem_inter_right w
-        rw[sameaselem.2 ru2 ru1inpi] at alpf
-        exact alpf
+          obtain ⟨elem, pf⟩ := nepir
+          use elem
+          simp
+          constructor
+          · let felem : f elem = r := pf
+            rw[felem]
+            exact p.1
+          constructor
+          · obtain ⟨ru1, w⟩  := p.2.1
+            obtain ⟨elem', sameaselem⟩ := Bijection_Preimage_Singleton f h.bijective r
+            rw[sameaselem.2 elem pf]
+            let alpf := w.1
+            let ru1inpi : ru1 ∈ f ⁻¹' {r} := Set.mem_of_mem_inter_right w
+            rw[sameaselem.2 ru1 ru1inpi] at alpf
+            exact alpf
+          · obtain ⟨ru2, w⟩  := p.2.2
+            obtain ⟨elem', sameaselem⟩ := Bijection_Preimage_Singleton f h.bijective r
+            rw[sameaselem.2 elem pf]
+            let alpf := w.1
+            let ru1inpi : ru2 ∈ f ⁻¹' {r} := Set.mem_of_mem_inter_right w
+            rw[sameaselem.2 ru2 ru1inpi] at alpf
+            exact alpf
       }
       is_closed' := {
         isOpen_compl := by {
@@ -247,15 +321,50 @@ theorem topologicalKrullDimIsomInvariant (X : Type _) (Y : Type _)
       let test : f b ∈ f '' u1 := Set.mem_image_of_mem f c
       let puf := a test
       let nex : ∀ uel, f uel ∈ (f '' u2) → uel ∈ u2 := by {
-        sorry
+        intro uel
+        rw[← Set.mem_preimage]
+        rw[Bijection_Preimage_Inverse_Of_Image]
+        exact fun a ↦ a
+        exact h.bijective
       }
       exact nex b puf
-      sorry
+      intro a b c
+      let test1 : u1 ⊆ u2 := a
+
+
+      let test : f ⁻¹' {b} ⊆ u1 := by {
+        let lp := Bijection_Preimage_Inverse_Of_Image f h.bijective u1
+        rw[← lp]
+        let fact : {b} ⊆ f '' u1 := Set.singleton_subset_iff.mpr c
+        intro k
+        intro l
+        exact fact l
+      }
+
+      let obfact : b ∈ f '' (f ⁻¹' {b}) := by {
+        rw[Bijection_Image_Inverse_Of_Preimage]
+        · exact rfl
+        · exact h.bijective
+      }
+
+      let finvb : ∃ x : X, f ⁻¹' {b} = {x} := by {
+        let y := Bijection_Preimage_Singleton f h.bijective b
+        obtain ⟨x, px⟩ := y
+        use x
+        exact Set.eq_singleton_iff_unique_mem.mpr px
+      }
+      obtain ⟨x, px⟩ := finvb
+      use x
+      let obfact2 : x ∈ f ⁻¹' {b} := by {
+        rw[px]
+        exact rfl
+      }
+      constructor
+      exact test1 (test obfact2)
+      exact obfact2
     }
   }
-  exact
-    krullDimIsomInvariant (TopologicalSpace.IrreducibleCloseds X)
-      (TopologicalSpace.IrreducibleCloseds Y) g
+  exact krullDim_eq_of_orderIso g
 
 def ClosedImmersionsTargettingX (X : Scheme) := Σ (Y : Scheme), Σ (f : Y ⟶ X), Inhabited (IsClosedImmersion f)
 
@@ -307,6 +416,7 @@ def PrimeWeilDivisor (X : Scheme) := Σ (l : ClosedSubscheme X), Inhabited (coDi
 def WeilDivisor (X : Scheme) := FreeAbelianGroup (PrimeWeilDivisor X)
 
 
+
 /-
 An attempt at defining the sheaf of rational functions via the presheaf of
 total quotient rings. Running into some typing issues with sheafification.
@@ -346,7 +456,12 @@ structure IsPrincipal {X : Scheme} [IsIntegral X] (D : WeilDivisor X) where
 
 axiom LinearEquivalentWeil (X : Scheme) : WeilDivisor X → WeilDivisor X → Prop
 
-axiom LineBundleOfDivisor {X : Scheme} (D : WeilDivisor X) : TopCat.Presheaf CommRingCat X.carrier
+def LineBundleOfDivisor {X : Scheme} (D : WeilDivisor X) : SheafOfModules X.ringCatSheaf := {
+  val := sorry /-TopCat.Presheaf CommRingCat X.carrier-/
+  isSheaf := sorry
+}
+
+instance LineBundleIsQCoh {X : Scheme} (D : WeilDivisor X) : IsQuasicoherent (LineBundleOfDivisor D) := sorry
 
 instance divisorClassSetoid (X : Scheme) : Setoid (WeilDivisor X) where
   r := LinearEquivalentWeil X
@@ -354,9 +469,12 @@ instance divisorClassSetoid (X : Scheme) : Setoid (WeilDivisor X) where
 
 def WeilDivisorClassGroup (X : Scheme) := Quotient (divisorClassSetoid X)
 
+def ZeroDivisor (X : Scheme) : WeilDivisor X := sorry
+
 axiom WeilDivisorClassGroupInstance (X : Scheme) : CommGroup (WeilDivisorClassGroup X)
 
 attribute [instance] WeilDivisorClassGroupInstance
+
 
 
 
@@ -369,4 +487,7 @@ class IsLocallyUFD (X : Scheme) : Prop where
 Isomorphism between Cl(X) and Pic(X) for an Integral Noetheian scheme whose local rings are all unique
 factorisation domains. The definition of this will almost certainly go via Cartier divisors,
 -/
+
 def LineBundleDivisorEquivalence (X : Scheme) [IsIntegral X] [IsNoetherian X] [IsLocallyUFD X] : WeilDivisorClassGroup X ≃* PicardGroup X := sorry
+
+def DegreeOfWeilDivisor {X : Scheme} (D : WeilDivisor X) : ℤ := sorry
