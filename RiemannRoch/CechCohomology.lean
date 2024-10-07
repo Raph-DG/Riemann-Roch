@@ -23,6 +23,7 @@ import Mathlib.CategoryTheory.Category.Basic
 import Mathlib.Algebra.Homology.ShortComplex.HomologicalComplex
 -/
 import Mathlib
+import RiemannRoch.Divisors
 
 open AlgebraicGeometry
 open SheafOfModules
@@ -36,7 +37,8 @@ variable {A : Type v} [Category A] {X : Scheme.{u}}
 /-
 Given a presheaf and an open cover, compute the cech nerve of the cover
 -/
-axiom CechComplexWithRespectToCover [HasProducts A] [Preadditive A] (U : X.OpenCover) (F : (TopologicalSpace.Opens X)ᵒᵖ ⥤ A) : CochainComplex A ℕ
+axiom CechComplexWithRespectToCover [HasProducts A] [Preadditive A] (U : X.OpenCover)
+    (F : (TopologicalSpace.Opens X)ᵒᵖ ⥤ A) : CochainComplex A ℕ
 
 
 
@@ -45,7 +47,7 @@ axiom CechComplexWithRespectToCover [HasProducts A] [Preadditive A] (U : X.OpenC
 Theorem: Given a separated scheme, any open affine cover will give the same
 Cech cohomology value.
 
-Note that being separated is not necessary here, the reason we have it is because
+Note that being separated is not strictly necessary here, the reason we have it is because
 it allows us to not need to check anything about the open cover. This also works
 for an arbitrary scheme where we have an affine cover such that all intersections
 of the cover are also affine (which is immediately implied by X being separated)
@@ -59,6 +61,23 @@ May want to return a structure here that bundles our Abelian group with a proof 
 module
 -/
 axiom CechCohomologyQCoh [IsSeparated (𝟙 X)] (F : SheafOfModules X.ringCatSheaf) [IsQuasicoherent F] (i : ℕ) : AddCommGrp
+
+instance {X : Scheme} {A : CommRingCat} {i : ℕ} (f : X ⟶ Spec A)
+    (F : SheafOfModules X.ringCatSheaf) [IsQuasicoherent F] : Module A (CechCohomologyQCoh F i) := sorry
+
+macro:max "𝒪(" D:term ")": term =>
+  `(LineBundleOfDivisor $D)
+
+macro:max "H"i:superscript(term) F:term: term =>
+  `(CechCohomologyQCoh $F $(⟨i.raw[0]⟩))
+
+macro:max "h"i:superscript(term) F:term: term =>
+  `(FiniteDimensional.finrank (CechCohomologyQCoh $F $(⟨i.raw[0]⟩)))
+
+variable (G : SheafOfModules X.ringCatSheaf) [IsQuasicoherent G]
+
+#check h⁰G
+#check 𝒪(ZeroDivisor X)
 
 /- Serre finiteness and vanishing (Hartshorne theorem 5.2) -/
 
@@ -110,5 +129,8 @@ Then, we need to show that
 Want: Vakil theorem 19.1.2 in here as our theorem about cohomology of line bundles
 on projective space.
 
+Then want: Hartshorne III 5.2 on the generalisation of this result to coherent sheaves
 
+Could also use Hartshorne II 5.19, but this only proves that global sections of a coherent
+sheaf are finitely generated, which doesn't help with H^1 unless we have Serre duality
 -/

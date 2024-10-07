@@ -20,6 +20,27 @@ noncomputable def ModuleLength (R : Type _) (M : Type _) [Semiring R] [AddCommMo
     WithBot (WithTop ℕ) :=
   krullDim (Submodule R M)
 
+
+/-
+  - WTS: given 0 → M' i→ M q→ M'' -> 0
+  - length M = length M' + length M''
+
+Proof:-
+  - length M ≥ length M' + length M''
+    - Take a filtration of M' of length n' and a filtration of M'' of length n''
+    - Make a filtration of length n + n' from these
+    - n ≥ n' + n''
+
+  - length M ≤ length M' + length M''
+    - Given a chain M_0 ⊆ M_1 ⊆ ... M_n consider Mᵢ' = Mᵢ ∩ M'
+    - and Mᵢ'' = q (Mᵢ) (lengths are n' and n'' respectively)
+    - If there are two consecutive elements the same in M' and in M''
+    - at i and i+1, then Mi and Mi+1 must also be the same, so
+    - n ≤ n' + n''
+-/
 theorem ModuleLengthAdditive {R : Type _} [Ring R]
 {S : CategoryTheory.ShortComplex (ModuleCat R)} (hS' : S.ShortExact) :
-ModuleLength R ↑S.X₂ = ModuleLength R ↑S.X₁ + ModuleLength R ↑S.X₃ := sorry
+ModuleLength R S.X₂ = ModuleLength R S.X₁ + ModuleLength R S.X₃ := by
+  simp[ModuleLength, krullDim]
+  rw[← WithBot.eq_unbot_iff]
+  rw[Nat.eq_iff_le_and_ge]

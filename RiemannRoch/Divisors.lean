@@ -366,19 +366,29 @@ theorem topologicalKrullDimIsomInvariant (X : Type _) (Y : Type _)
   }
   exact krullDim_eq_of_orderIso g
 
-def ClosedImmersionsTargettingX (X : Scheme) := Σ (Y : Scheme), Σ (f : Y ⟶ X), Inhabited (IsClosedImmersion f)
+structure ClosedImmersionOver (X : Scheme) :=
+  source : Scheme
+  embedding : source ⟶ X
+  immersion : IsClosedImmersion embedding
 
-instance closedImmersionsTargettingXSetoid (X : Scheme) : Setoid (ClosedImmersionsTargettingX X) where
-  r := fun ⟨y1, f1, _⟩ ⟨y2, f2, _⟩ ↦ (∃ (h : y1 ≅ y2), f1 = h.hom ≫ f2)
+def IsSubschemeMorphism {X : Scheme} {Z : ClosedImmersionOver X} {Y : ClosedImmersionOver X} (f : Y.source ⟶ Z.source) : Prop :=
+  Y.embedding = f ≫ Z.embedding
+
+def existsIsoOfClosedSubscheme (X : Scheme)
+  (Y : ClosedImmersionOver X) (Z : ClosedImmersionOver X) : Prop
+  :=  ∃ (h : Y.source ≅ Z.source), IsSubschemeMorphism h.hom
+
+instance closedImmersionTargettingSchemeSetoid (X : Scheme) : Setoid (ClosedImmersionOver X) where
+  r := existsIsoOfClosedSubscheme X
   iseqv := {
     refl := by {
-      intro ⟨y1, f1, im1⟩
-      use Iso.refl y1
+      intro cl
+      use Iso.refl cl.source
       rfl
     }
     symm := by {
-      intro ⟨y1, f1, im1⟩ ⟨y2, f2, im2⟩
-      simp
+      intro Y Z
+      simp[existsIsoOfClosedSubscheme, IsSubschemeMorphism]
       intro i eq
       use i.symm
       rw[eq]
@@ -386,7 +396,7 @@ instance closedImmersionsTargettingXSetoid (X : Scheme) : Setoid (ClosedImmersio
     }
     trans := by {
       intro ⟨y1, f1, im1⟩ ⟨y2, f2, im2⟩ ⟨y3, f3, im3⟩
-      simp
+      simp[existsIsoOfClosedSubscheme, IsSubschemeMorphism]
       intro y1iy2 eq1 y2iy3 eq2
       use y1iy2 ≪≫ y2iy3
       simp
@@ -395,10 +405,13 @@ instance closedImmersionsTargettingXSetoid (X : Scheme) : Setoid (ClosedImmersio
     }
   }
 
-def ClosedSubscheme (X : Scheme) := Quotient (closedImmersionsTargettingXSetoid X)
+def ClosedSubscheme (X : Scheme) := Quotient (closedImmersionTargettingSchemeSetoid X)
 
 
-def SubschemeDimension {X : Scheme} (Y : ClosedSubscheme X) : WithBot ℕ∞ := sorry
+
+
+def SubschemeDimension {X : Scheme} (Y : ClosedSubscheme X) : WithBot ℕ∞ := by
+  apply Quotient.lift
 /-
 Note this is of course not the real definition of the codimension
 -/
@@ -411,7 +424,10 @@ def coDimension {X : Scheme} (Y : ClosedSubscheme X) : WithBot ℕ∞ := sorry /
 Note I just wanted to get this to compile, this really should be integral
 closed subschemes.
 -/
-def PrimeWeilDivisor (X : Scheme) := Σ (l : ClosedSubscheme X), Inhabited (coDimension l = 1)
+structure PrimeWeilDivisor (X : Scheme) where
+ subscheme : ClosedSubscheme X
+ codim : coDimension subscheme = 1
+ /-integral : IsIntegral subscheme-/
 
 def WeilDivisor (X : Scheme) := FreeAbelianGroup (PrimeWeilDivisor X)
 
@@ -461,8 +477,9 @@ def LineBundleOfDivisor {X : Scheme} (D : WeilDivisor X) : SheafOfModules X.ring
   isSheaf := sorry
 }
 
+/-
 instance LineBundleIsQCoh {X : Scheme} (D : WeilDivisor X) : IsQuasicoherent (LineBundleOfDivisor D) := sorry
-
+-/
 instance divisorClassSetoid (X : Scheme) : Setoid (WeilDivisor X) where
   r := LinearEquivalentWeil X
   iseqv := sorry

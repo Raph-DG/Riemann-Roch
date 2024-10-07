@@ -26,4 +26,17 @@ That X is separated should be derivable from the strong assumptions about it
 -/
 lemma XSep : IsSeparated (𝟙 X) := sorry
 
-theorem RiemannRoch : h⁰(D) - h¹(D) = DegreeOfWeilDivisor D + h⁰(ZeroDivisor X) - h¹(ZeroDivisor X)
+macro:max "𝒪(" D:term ")": term =>
+  `(LineBundleOfDivisor $D)
+
+macro:max "H"i:superscript(term) F:term: term =>
+  `(CechCohomologyQCoh $F $(⟨i.raw[0]⟩))
+
+macro:max "h"i:superscript(term) D:term: term =>
+  `(FiniteDimensional.finrank (CechCohomologyQCoh (LineBundleOfDivisor $D) $(⟨i.raw[0]⟩)))
+
+
+instance LineBundleIsQCoh {X : Scheme} (D : WeilDivisor X) : IsQuasicoherent (LineBundleOfDivisor D) := sorry
+
+
+theorem RiemannRoch : h⁰(D) - h¹(D) = DegreeOfWeilDivisor D + h⁰(ZeroDivisor X) - h¹(ZeroDivisor X) := sorry
