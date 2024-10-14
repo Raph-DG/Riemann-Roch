@@ -411,7 +411,8 @@ def ClosedSubscheme (X : Scheme) := Quotient (closedImmersionTargettingSchemeSet
 
 
 def SubschemeDimension {X : Scheme} (Y : ClosedSubscheme X) : WithBot ℕ∞ := by
-  apply Quotient.lift
+  sorry
+  -- apply Quotient.lift
 /-
 Note this is of course not the real definition of the codimension
 -/

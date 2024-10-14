@@ -10,16 +10,27 @@ import Mathlib.Order.Hom.Basic
 import Mathlib.Algebra.Category.ModuleCat.Basic
 import Mathlib.Algebra.Homology.ShortComplex.ShortExact
 import Mathlib.AlgebraicGeometry.Properties
+import Mathlib.RingTheory.FiniteLength
 
 open AlgebraicGeometry
 open CategoryTheory
 open Opposite.op
 open Module
 
-noncomputable def ModuleLength (R : Type _) (M : Type _) [Semiring R] [AddCommMonoid M] [Module R M] :
+
+variable (R : Type*)
+         [Ring R]
+         (M : Type*)
+         [AddCommMonoid M]
+         [Module R M]
+
+noncomputable def ModuleLength :
     WithBot (WithTop ℕ) :=
   krullDim (Submodule R M)
 
+variable (fl : IsFiniteLength M)
+
+def FiniteModuleLength : ℕ =
 
 /-
   - WTS: given 0 → M' i→ M q→ M'' -> 0
@@ -38,9 +49,13 @@ Proof:-
     - at i and i+1, then Mi and Mi+1 must also be the same, so
     - n ≤ n' + n''
 -/
+
 theorem ModuleLengthAdditive {R : Type _} [Ring R]
 {S : CategoryTheory.ShortComplex (ModuleCat R)} (hS' : S.ShortExact) :
 ModuleLength R S.X₂ = ModuleLength R S.X₁ + ModuleLength R S.X₃ := by
   simp[ModuleLength, krullDim]
-  rw[← WithBot.eq_unbot_iff]
-  rw[Nat.eq_iff_le_and_ge]
+
+
+  -- rw[← WithBot.eq_unbot_iff]
+  -- rw[Nat.eq_iff_le_and_ge]
+  sorry
