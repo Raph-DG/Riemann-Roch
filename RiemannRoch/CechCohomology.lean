@@ -24,21 +24,47 @@ import Mathlib.Algebra.Homology.ShortComplex.HomologicalComplex
 -/
 import Mathlib
 import RiemannRoch.Divisors
+import RiemannRoch.Proper
 
 open AlgebraicGeometry
 open SheafOfModules
 open CategoryTheory
 open Limits
+open PresheafedSpace
 
 universe u v
 variable {A : Type v} [Category A] {X : Scheme.{u}}
 
 
+def nfoldInts {n : ℕ} (U : X.OpenCover) (t : Fin n → U.J) : (TopologicalSpace.Opens X) := by
+  let osub : Fin n → TopologicalSpace.Opens X := fun i => {
+    carrier := Set.range (U.map (t i)).1.base
+    is_open' := IsOpenImmersion.isOpen_range (U.map (t i))
+  }
+  let inter : TopologicalSpace.Opens X := {
+    carrier := ⋂ (i : Fin n), (osub i).carrier
+    is_open' := sorry -- I think this is a theorem somewhere, inter_is_open or something
+  }
+  exact inter
+
+
+  --let test := ⋂ (i : Fin n), sorry
 /-
 Given a presheaf and an open cover, compute the cech nerve of the cover
 -/
-axiom CechComplexWithRespectToCover [HasProducts A] [Preadditive A] (U : X.OpenCover)
-    (F : (TopologicalSpace.Opens X)ᵒᵖ ⥤ A) : CochainComplex A ℕ
+
+#check nfoldInts
+
+noncomputable
+def CechComplexWithRespectToCover [HasProducts A] [Preadditive A] (U : X.OpenCover)
+    (F : (TopologicalSpace.Opens X)ᵒᵖ ⥤ A) : CochainComplex A ℕ := {
+      X := fun i => by {
+        let test := fun j (t : Fin j → U.J) => F.obj (Opposite.op (nfoldInts U t)) --Discrete.functor (t : Fin i → U.J) × (F.obj (Opposite.op (nfoldInts U t)))
+        let func := Discrete.functor (test i)
+        exact (limit func)
+      }
+      d := sorry -- Need F applied to a bunch of restriction maps
+    }
 
 
 
@@ -52,18 +78,21 @@ it allows us to not need to check anything about the open cover. This also works
 for an arbitrary scheme where we have an affine cover such that all intersections
 of the cover are also affine (which is immediately implied by X being separated)
 -/
-theorem QCohCohomologyWorksForAnyCover [IsSeparated (𝟙 X)] (F : SheafOfModules X.ringCatSheaf) [IsQuasicoherent F] :
-∀ (i : ℕ), ∃ (G : AddCommGrp), ∀ (U : X.AffineOpenCover), Nonempty ((HomologicalComplex.homology (CechComplexWithRespectToCover (AlgebraicGeometry.Scheme.AffineOpenCover.openCover U) F.val.presheaf) i) ≅ G) := sorry
+theorem QCohCohomologyWorksForAnyCover [IsSeparatedScheme X] (F : SheafOfModules X.ringCatSheaf) [IsQuasicoherent F] :
+∀ (i : ℕ), ∃ (G : AddCommGrp),
+∀ (U : X.AffineOpenCover), Nonempty ((HomologicalComplex.homology (CechComplexWithRespectToCover (AlgebraicGeometry.Scheme.AffineOpenCover.openCover U) F.val.presheaf) i) ≅ G) := sorry
 
 
 /-
 May want to return a structure here that bundles our Abelian group with a proof that it's a Γ(X, X)
 module
 -/
-axiom CechCohomologyQCoh [IsSeparated (𝟙 X)] (F : SheafOfModules X.ringCatSheaf) [IsQuasicoherent F] (i : ℕ) : AddCommGrp
+axiom CechCohomologyQCoh {A : CommRingCat} (F : SheafOfModules X.ringCatSheaf)
+    (f : X ⟶ Spec A) [IsSeparated f] [IsQuasicoherent F] (i : ℕ) : AddCommGrp
 
-instance {X : Scheme} {A : CommRingCat} {i : ℕ} (f : X ⟶ Spec A)
-    (F : SheafOfModules X.ringCatSheaf) [IsQuasicoherent F] : Module A (CechCohomologyQCoh F i) := sorry
+instance instQCohModule {A : CommRingCat} (i : ℕ) (f : X ⟶ Spec A) [IsSeparated f]
+    (F : SheafOfModules X.ringCatSheaf) [IsQuasicoherent F] : Module A (CechCohomologyQCoh F f i) := sorry
+
 
 macro:max "𝒪(" D:term ")": term =>
   `(LineBundleOfDivisor $D)
@@ -72,11 +101,11 @@ macro:max "H"i:superscript(term) F:term: term =>
   `(CechCohomologyQCoh $F $(⟨i.raw[0]⟩))
 
 macro:max "h"i:superscript(term) F:term: term =>
-  `(FiniteDimensional.finrank (CechCohomologyQCoh $F $(⟨i.raw[0]⟩)))
+  `(Module.finrank (CechCohomologyQCoh $F $(⟨i.raw[0]⟩)))
 
 variable (G : SheafOfModules X.ringCatSheaf) [IsQuasicoherent G]
 
-#check h⁰G
+--#check h⁰G
 #check 𝒪(ZeroDivisor X)
 
 /- Serre finiteness and vanishing (Hartshorne theorem 5.2) -/

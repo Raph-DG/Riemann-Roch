@@ -29,3 +29,10 @@ class IsProper {X Y : Scheme} (f : X ⟶ Y) : Prop where
   separated : IsSeparated f
   finite_type : IsFiniteType f
 
+
+/-
+Unnecessary in the long run, and it shouldn't be difficult to define,
+I just can't find the unique map into spec Z given by any scheme
+-/
+class IsSeparatedScheme (X : Scheme) where
+  sep : sorry
