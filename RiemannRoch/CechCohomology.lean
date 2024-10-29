@@ -32,6 +32,7 @@ open CategoryTheory
 open Limits
 open PresheafedSpace
 
+
 universe u v
 variable {A : Type v} [Category A] {X : Scheme.{u}}
 
@@ -43,11 +44,48 @@ def nfoldInts {n : ℕ} (U : X.OpenCover) (t : Fin n → U.J) : (TopologicalSpac
   }
   let inter : TopologicalSpace.Opens X := {
     carrier := ⋂ (i : Fin n), (osub i).carrier
-    is_open' := sorry -- I think this is a theorem somewhere, inter_is_open or something
+    is_open' := sorry --TopologicalSpace.isOpen_inter -- I think this is a theorem somewhere, inter_is_open or something
   }
   exact inter
 
+noncomputable
+def left_int_rest {U V : TopologicalSpace.Opens X} : U ⊓ V ⟶ U := by exact U.infLELeft V
 
+
+/-
+Here we wish to define the inclusion ⋂ (i : Fin n), U.J to ⋂ (i : Fin (n+1)), U.J which is
+0 if the set of U.J indexed by n is not contained in the set of U.J indexed by n+1
+-/
+
+
+def nFoldIntsMap {n : ℕ} (U : X.OpenCover) (t : Fin n → U.J) (t' : Fin (n+1) → U.J)
+  (subs : Set.range t ⊆ Set.range t') : (U.J × nfoldInts U t ⟶ nfoldInts U t') := by
+    let map : nfoldInts U t ⟶ nfoldInts U t' := {
+      down := by {
+        let test : (nfoldInts U t).carrier ⊆ (nfoldInts U t').carrier := by {
+          unfold nfoldInts
+          simp
+          intro i
+
+        }
+        exact { down := test }
+      }
+    }
+    sorry
+
+
+
+
+
+
+
+
+
+
+
+
+  --linc : ({carrier := U ∩ V, is_open' := TopologicalSpace.isOpen_inter}) ⟶ U
+  --rinc : U ⊓ V ⟶ V
   --let test := ⋂ (i : Fin n), sorry
 /-
 Given a presheaf and an open cover, compute the cech nerve of the cover
@@ -55,16 +93,28 @@ Given a presheaf and an open cover, compute the cech nerve of the cover
 
 #check nfoldInts
 
+
+
+
 noncomputable
 def CechComplexWithRespectToCover [HasProducts A] [Preadditive A] (U : X.OpenCover)
-    (F : (TopologicalSpace.Opens X)ᵒᵖ ⥤ A) : CochainComplex A ℕ := {
-      X := fun i => by {
-        let test := fun j (t : Fin j → U.J) => F.obj (Opposite.op (nfoldInts U t)) --Discrete.functor (t : Fin i → U.J) × (F.obj (Opposite.op (nfoldInts U t)))
-        let func := Discrete.functor (test i)
-        exact (limit func)
+    {n : ℕ} (fin : U.J ≅ Fin n) (F : (TopologicalSpace.Opens X)ᵒᵖ ⥤ A) : CochainComplex A ℕ := by
+      let test := fun j (t : Fin j → U.J) => F.obj (Opposite.op (nfoldInts U t))
+      let out : CochainComplex A ℕ := {
+        X := fun i => by { --Discrete.functor (t : Fin i → U.J) × (F.obj (Opposite.op (nfoldInts U t)))
+          let func := Discrete.functor (test i)
+          exact (limit func)
+        }
+        d := fun i j ↦ by {
+          simp
+          let obv : Fintype U.J := sorry
+
+          let mor : (Fin i → U.J) → A := fun t ↦ ∑ (t' : Fin (i+1) → U.J), by {}
+          sorry
+        } -- Need F applied to a bunch of restriction maps
       }
-      d := sorry -- Need F applied to a bunch of restriction maps
-    }
+      sorry
+
 
 
 
@@ -80,7 +130,8 @@ of the cover are also affine (which is immediately implied by X being separated)
 -/
 theorem QCohCohomologyWorksForAnyCover [IsSeparatedScheme X] (F : SheafOfModules X.ringCatSheaf) [IsQuasicoherent F] :
 ∀ (i : ℕ), ∃ (G : AddCommGrp),
-∀ (U : X.AffineOpenCover), Nonempty ((HomologicalComplex.homology (CechComplexWithRespectToCover (AlgebraicGeometry.Scheme.AffineOpenCover.openCover U) F.val.presheaf) i) ≅ G) := sorry
+∀ (U : X.AffineOpenCover),
+Nonempty ((HomologicalComplex.homology (CechComplexWithRespectToCover (AlgebraicGeometry.Scheme.AffineOpenCover.openCover U) F.val.presheaf) i) ≅ G) := sorry
 
 
 /-
@@ -113,7 +164,6 @@ variable (G : SheafOfModules X.ringCatSheaf) [IsQuasicoherent G]
 def ProjectiveSpace (R : CommRingCat) (n : ℕ) : Scheme.{u} := sorry
 
 def TwistingSheaf {m : ℕ} {R : CommRingCat} (n : ℕ) : SheafOfModules (ProjectiveSpace R n).ringCatSheaf := sorry
-
 
 
 

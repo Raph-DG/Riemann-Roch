@@ -54,5 +54,3 @@ def Scheme.OpenCover.cechComplex [HasProducts A] [Preadditive A]
   let e := e.cechNerve
   let e : CosimplicialObject _ := e.rightOp ⋙ Scheme.OpenCover.inducedFunctor F
   (AlgebraicTopology.alternatingCofaceMapComplex _).obj e
-
-

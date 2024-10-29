@@ -163,6 +163,11 @@ structure PrimeWeilDivisor (X : Scheme) where
 
 def WeilDivisor (X : Scheme) := FreeAbelianGroup (PrimeWeilDivisor X)
 
+instance (X : Scheme) : AddCommGroup (WeilDivisor X) :=
+  inferInstanceAs (AddCommGroup <| FreeAbelianGroup (PrimeWeilDivisor X))
+
+variable {Y : Scheme}
+#check (0 : WeilDivisor Y)
 
 
 /-
@@ -177,13 +182,13 @@ def RatPreSheaf (X : Scheme) : TopCat.Presheaf Type X.carrier := {
 }
 
 
-def FieldOfFractionsOfScheme (X : Scheme) [IsIntegral X] : CommRingCat := sorry
+--def FieldOfFractionsOfScheme (X : Scheme) [IsIntegral X] : CommRingCat := sorry
 
 /-
-Order of vanishing of an element f of the function field of X at a point x. Defined as the
-length of the module O_x / f
+Order of vanishing of an element f of the function field of X at a prime divisor D. Defined as the
+length of the module O_D / f
 -/
-def OrderOfRat {X : Scheme} [IsIntegral X] (f : FieldOfFractionsOfScheme X) (x : PrimeWeilDivisor X) : ℕ := sorry
+def OrderOfRat {X : Scheme} [IsIntegral X] (f : X.functionField) (D : PrimeWeilDivisor X) : ℕ := sorry
 
 
 
@@ -195,10 +200,10 @@ proper closed subset is a union of a finite number of irreducible closed subsets
 Probably best to actually define this as the sum of that decomposition explicitly rather than attempting to take
 an infinite sum and proving that along most prime divisors our function has neither a zero nor a pole
 -/
-def PrincipalWeilDivisor {X : Scheme} [IsIntegral X] (f : FieldOfFractionsOfScheme X) : WeilDivisor X := sorry
+def PrincipalWeilDivisor {X : Scheme} [IsIntegral X] (f : X.functionField) : WeilDivisor X := sorry
 
 structure IsPrincipal {X : Scheme} [IsIntegral X] (D : WeilDivisor X) where
-  f : FieldOfFractionsOfScheme X
+  f : X.functionField
   eq : D = (PrincipalWeilDivisor f)
 
 
