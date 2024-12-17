@@ -13,6 +13,8 @@ import Mathlib.Algebra.Homology.ShortComplex.ShortExact
 import Mathlib.Algebra.Homology.ShortComplex.ModuleCat
 import Mathlib.AlgebraicGeometry.Properties
 import Mathlib.RingTheory.FiniteLength
+import Mathlib.Order.ConditionallyCompleteLattice.Group
+--import Plausible
 
 open AlgebraicGeometry
 open CategoryTheory
@@ -33,24 +35,13 @@ section FL
            [AddCommGroup M']
            [Module R M]
            [Module R M']
-           (fl : IsFiniteLength R M)
-
-  open Classical in
-  noncomputable
-  def Module.length : ℕ :=
-    Nat.find (p := fun (n : ℕ) ↦
-      ∃ s : CompositionSeries (Submodule R M), s.head = ⊥ ∧ s.last = ⊤ ∧ s.length = n) <| by
-    rw[isFiniteLength_iff_exists_compositionSeries] at fl
-    obtain ⟨s, hs⟩ := fl
-    use s.length
-    aesop
+           --(fl : IsFiniteLength R M)
 
 
-  #check krullDim
   variable (R M) in
   open Classical in
   noncomputable
-  def Module.length' := krullDim (α := Submodule R M)
+  def Module.length := krullDim (α := Submodule R M)
 
   /-
   def Module.length' : ℕ :=
@@ -70,7 +61,7 @@ section FL
 
 
   --theorem sanitycheck : length' M = 2 := sorry
-
+  /-
   open Classical in
   theorem Module.length_witness (s : CompositionSeries (Submodule R M))
     (cs : RelSeries.head s = ⊥ ∧ RelSeries.last s = ⊤) : Module.length fl = s.length := by
@@ -93,8 +84,9 @@ section FL
       apply Nat.card_eq_of_equiv_fin at g
       simp at g
       aesop
+  -/
 
-
+  /-
   def CompositionSeries.compositionSeries_of_injective {f : M →ₗ[R] M'} (hf : Function.Injective f)
       (s : CompositionSeries (Submodule R M)) :
       CompositionSeries (Submodule R M') := {
@@ -110,30 +102,30 @@ section FL
           --exact CompositionSeries.lt_succ s i
         }
       }
-
-  def CompositionSeries.relSeries_of_injective {f : M →ₗ[R] M'} (hf : Function.Injective f)
-      (s : CompositionSeries (Submodule R M)) :
-      RelSeries (fun (a : Submodule R M') (b : Submodule R M') => a < b) := {
+    -/
+  def RelSeries.submoduleMap_injective {f : M →ₗ[R] M'} (hf : Function.Injective f)
+      (s : RelSeries (α := Submodule R M) (· < ·)) :
+      RelSeries (α := Submodule R M') (· < ·) := {
         length := s.length
         toFun := fun n => Submodule.map f (s.toFun n)
         step := by {
           let proof := Submodule.map_strictMono_of_injective hf
           intro i
           apply proof
-          exact CompositionSeries.lt_succ s i
+          exact s.step i
         }
       }
 
-  def CompositionSeries.relSeries_of_surjective {f : M →ₗ[R] M'} (hf : Function.Surjective f)
-      (s : CompositionSeries (Submodule R M')) :
-      RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a < b) := {
+  def RelSeries.submoduleComap_surjective {f : M →ₗ[R] M'} (hf : Function.Surjective f)
+      (s : RelSeries (α := Submodule R M') (· < ·)) :
+      RelSeries (α := Submodule R M) (· < ·) := {
         length := s.length
         toFun := fun n => Submodule.comap f (s.toFun n)
         step := by {
           let proof := Submodule.comap_strictMono_of_surjective hf
           intro i
           apply proof
-          exact CompositionSeries.lt_succ s i
+          exact s.step i
         }
       }
 
@@ -163,6 +155,8 @@ def RelSeries.composition_series_of
   A filtration of a module which is not a composition series must have some pair of consecutive
   elements whose quotient is not simple
   -/
+
+  /-
   theorem RelSeries.exists_nonMaximal
     {rs : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a < b)}
     (h : rs.length ≠ Module.length fl)
@@ -177,7 +171,11 @@ def RelSeries.composition_series_of
       step := assum
     }
     exact h (id (Eq.symm (Module.length_witness fl cs hm)))
+    -/
 
+  /-
+  Not directly relevant, but doesn't break I supppose
+  -/
   theorem RelSeries.max_chain_head_tail
   {rs : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a < b)}
   (maximal : ∀ xs : RelSeries (fun (a : Submodule R M)
@@ -195,6 +193,49 @@ def RelSeries.composition_series_of
     let mm : cont.length = rs.length.succ := rfl
     rw[mm] at maximal
     omega
+
+  theorem RelSeries.chain_le_bot_top
+  (rs : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a < b))
+  : ∃ xs : RelSeries (α := Submodule R M) (· < ·),
+    xs.length ≥ rs.length ∧ xs.head = ⊥ ∧ xs.last = ⊤ := by
+    obtain h | h := em (rs.head = ⊥)
+    · obtain q | q := em (rs.last = ⊤)
+      · use rs
+      · have : rs.last < ⊤ := by exact Ne.lt_top' fun a ↦ q (id (Eq.symm a))
+        use rs.snoc ⊤ this
+        aesop
+    · have : ⊥ < rs.head := by exact Ne.bot_lt' fun a ↦ h (id (Eq.symm a))
+      obtain q | q := em (rs.last = ⊤)
+      · use rs.cons ⊥ this
+        aesop
+      · let this' : (rs.cons ⊥ this).last < ⊤ := by
+          simp
+          exact Ne.lt_top' fun a ↦ q (id (Eq.symm a))
+        use (rs.cons ⊥ this).snoc ⊤ this'
+        simp only [snoc_length, cons_length, ge_iff_le, head_snoc, head_cons, last_snoc, and_self,
+          and_true]
+        omega
+
+
+
+  /-
+  by_contra absurdity
+  obtain h | h : rs.head ≠ ⊥ ∨ rs.last ≠ ⊤ := by tauto
+  · let cont := rs.cons ⊥ (Ne.bot_lt' (id (Ne.symm h)))
+    specialize maximal cont
+    let mm : cont.length = rs.length.succ := cons_length rs ⊥ (Ne.bot_lt' (id (Ne.symm h)))
+    rw[mm] at maximal
+    omega
+  · let cont := rs.snoc ⊤ (Ne.lt_top' (id (Ne.symm h)))
+    specialize maximal cont
+    let mm : cont.length = rs.length.succ := rfl
+    rw[mm] at maximal
+    omega
+
+    -/
+
+
+
   /-
   theorem Module.length_sup_is_max
   (fl : IsFiniteLength R M) :
@@ -308,7 +349,7 @@ def RelSeries.is_maximal_length {α : Type*} {r : Rel α α} (rs : RelSeries r) 
 (maximal : ∀ xs : RelSeries (fun (a : Submodule R M)
   (b : Submodule R M) => a < b), rs.length ≥ xs.length)
 -/
-
+/-
 open CompositionSeries in
 theorem Module.length_maximal
   {rs : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a < b)}
@@ -329,7 +370,7 @@ theorem Module.length_maximal
     specialize maximal contrs
     rw[cont] at maximal
     omega
-
+-/
 --def FiniteLength.exists_maximal_chain : sorry := sorry
 
 /-
@@ -375,7 +416,7 @@ theorem finiteLength_exists_maximal_chain (fl : IsFiniteLength R M) :
   specialize ha m
   simp_all
 -/
-
+/-
 theorem Module.finite_length_exists_maximal_relseries
  (fl : IsFiniteLength R M) :
  ∃ mrs : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a < b),
@@ -409,10 +450,10 @@ theorem Module.finite_length_exists_maximal_relseries
    -- Suppose there were no max length.
    sorry
   --simp_all only [exists_const, not_true_eq_false]
+-/
 
 
-
-
+/--/
 open CompositionSeries in
   theorem Module.length_ge_relSeries
     (rs : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a < b))
@@ -423,7 +464,7 @@ open CompositionSeries in
       --apply Module.length_maximal
       sorry
 
-
+-/
 
   def RelSeries.submoduleMap (rs : RelSeries (α := Submodule R M) (· < ·))
     (f : M →ₗ[R] M') : RelSeries (α := Submodule R M') (· ≤ ·) :=
@@ -569,7 +610,7 @@ open CompositionSeries in
         exact Nat.le_add_right_of_le ih
 
 
-  theorem RelSeries.trimmed_length_exists_ne {rs : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a ≤ b)}
+  theorem RelSeries.trimmed_length_exists_eq {rs : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a ≤ b)}
   (hrs : rs.length > RelSeries.trimmed_length rs) : ∃ i, rs.toFun i = rs.toFun (i+1) := by
     apply by_contradiction
     intro notex
@@ -597,6 +638,30 @@ open CompositionSeries in
 
     · apply (lt_self_iff_false rs.length).mp
       exact hrs
+
+
+  theorem RelSeries.trimmed_length_exists_le {rs : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a ≤ b)}
+  (hrs : rs.trimmed_length > 0) : ∃ i, rs.toFun i < rs.toFun (i+1) := by
+    apply by_contradiction
+    intro notex
+    simp at notex
+    simp[RelSeries.trimmed_length] at hrs
+    have gofact (i : ℕ) : go rs i = 0 := by
+      induction' o : i with n ih generalizing i
+      · aesop
+      · simp[go]
+        --simp_all only [Nat.cast_add, Nat.cast_one]
+        simp_all
+        specialize notex n
+
+
+        -- Should be a rewriting of notex (albeit an awful one)
+        sorry
+
+    rw[gofact (rs.length)] at hrs
+    contradiction
+
+
 
   theorem Set.preimage_mono_of_range_intersection {A B : Type*} {f : A → B} {S S' : Set B}
     (ltint : Set.range f ⊓ S < Set.range f ⊓ S') (lt : S ≤ S') : f ⁻¹' S < f ⁻¹' S' := by
@@ -664,30 +729,34 @@ open CompositionSeries in
     aesop
 
 
-  theorem RelSeries.submodule_comap_lt_of_map_eq_exact {S : CategoryTheory.ShortComplex (ModuleCat R)} (hS : S.ShortExact)
+  theorem RelSeries.submodule_comap_lt_of_map_eq_exact
+    {S : CategoryTheory.ShortComplex (ModuleCat R)} (hS : S.ShortExact)
     (rs : RelSeries (α := Submodule R S.X₂) (· < ·)) (i : Fin rs.length)
     (p : (rs.submoduleMap S.g).toFun i = (rs.submoduleMap S.g).toFun (i+1))
     : (rs.submoduleComap S.f).toFun i < (rs.submoduleComap S.f).toFun (i+1) := by
 
-      let kernelInt : LinearMap.ker S.g ⊓ (rs.toFun i) < LinearMap.ker S.g ⊓ (rs.toFun (i+1)) := by
-       let p' : Submodule.map S.g (rs.toFun i.castSucc) = Submodule.map S.g (rs.toFun i.succ) := by aesop
-       let ans := kernel_intersection (rs.step i) p'
+      have kernelInt : LinearMap.ker S.g ⊓ (rs.toFun i) < LinearMap.ker S.g ⊓ (rs.toFun (i+1)) := by
+       have p' : Submodule.map S.g (rs.toFun i.castSucc) = Submodule.map S.g (rs.toFun i.succ) :=
+        by aesop
+       have ans := kernel_intersection (rs.step i) p'
        aesop
 
-      let exactness : LinearMap.ker S.g = LinearMap.range S.f := by
-        let proof := CategoryTheory.ShortComplex.Exact.moduleCat_range_eq_ker hS.exact
+      have exactness : LinearMap.ker S.g = LinearMap.range S.f := by
+        have proof := CategoryTheory.ShortComplex.Exact.moduleCat_range_eq_ker hS.exact
         exact id (Eq.symm proof)
 
       rw[exactness] at kernelInt
 
       simp_all
 
-      let intLem (k : Fin (rs.length + 1)) : (rs.submoduleComap S.f).toFun k = Submodule.comap S.f (LinearMap.range S.f ⊓ rs.toFun k) := by aesop
+      have intLem (k : Fin (rs.length + 1)) :
+       (rs.submoduleComap S.f).toFun k = Submodule.comap S.f (LinearMap.range S.f ⊓ rs.toFun k) :=
+         by aesop
       rw[intLem i.castSucc, intLem i.succ]
 
-      let lem := Set.preimage_mono_of_range_intersection kernelInt (le_of_lt (rs.step i))
+      have lem := Set.preimage_mono_of_range_intersection kernelInt (le_of_lt (rs.step i))
       simp
-      let comap_range : Submodule.comap S.f (LinearMap.range S.f) = ⊤ := by aesop
+      have comap_range : Submodule.comap S.f (LinearMap.range S.f) = ⊤ := by aesop
       rw[comap_range]
       simp
       exact lem
@@ -710,7 +779,8 @@ open CompositionSeries in
 
       simp_all
 
-      let intLem (k : Fin (rs.length + 1)) : (rs.submoduleMap S.g).toFun k = Submodule.map S.g (rs.toFun k) := by aesop
+      let intLem (k : Fin (rs.length + 1)) :
+        (rs.submoduleMap S.g).toFun k = Submodule.map S.g (rs.toFun k) := by aesop
       rw[intLem i.castSucc, intLem i.succ]
 
       exact kernel_intersection' (rs.step i) imInt
@@ -718,7 +788,7 @@ open CompositionSeries in
 
 
 
-    theorem RelSeries.trimmed_length_eraseLast_eq
+    theorem RelSeries.trimmed_length_eraseLast_of_eq
       {rs : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a ≤ b)}
       (nontriv : rs.length > 0)
       (lasteq : rs.toFun (rs.length) = rs.toFun (rs.length - 1))
@@ -770,7 +840,7 @@ open CompositionSeries in
           --let lesconf := ih p
 
 
-    theorem RelSeries.trimmed_length_eraseLast_le
+    theorem RelSeries.trimmed_length_eraseLast_of_lt
       {rs : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a ≤ b)}
       (nontriv : rs.length > 0)
       (lastlt : rs.toFun (rs.length - 1) < rs.toFun (rs.length))
@@ -815,6 +885,36 @@ open CompositionSeries in
 
 
 
+  theorem RelSeries.trimmed_length_eraseLast_le
+    (rs : RelSeries (α := Submodule R M) (· ≤ ·)) (nontriv : rs.length > 0) :
+    rs.eraseLast.trimmed_length ≤ rs.trimmed_length := by
+    rw[le_iff_eq_or_lt]
+    obtain h | h := em <| rs (rs.length - 1) < rs (rs.length)
+    · have proof := RelSeries.trimmed_length_eraseLast_of_lt nontriv h
+      omega
+    · have h' : rs (rs.length - 1) ≤ rs (rs.length) := by
+        simp_all
+        let m : Fin rs.length := {val := rs.length - 1, isLt := by aesop}
+        convert rs.step m using 1
+        · apply congr_arg
+          apply Fin.eq_of_val_eq
+          simp
+          have h₂ : Fin.last rs.length = rs.length :=
+            by exact Eq.symm (Fin.natCast_eq_last rs.length)
+          rw[h₂]
+          rw [@Fin.coe_sub_one]
+          simp
+          intro ez
+          omega
+        · apply congr_arg
+          apply Fin.eq_of_val_eq
+          simp only [Fin.val_last, Fin.val_succ]
+          omega
+      have h'' : rs.toFun (↑rs.length - 1) = rs.toFun ↑rs.length := by
+        convert h
+        exact LE.le.eq_iff_not_lt h'
+      have proof := RelSeries.trimmed_length_eraseLast_of_eq nontriv h''.symm
+      omega
 
 
   theorem trimmed_length_additive
@@ -844,7 +944,7 @@ open CompositionSeries in
                        aesop
 
             let obv : (rs.submoduleMap S.g).length > 0 := by exact Fin.pos n' --by exact Nat.zero_lt_of_lt h
-            rw[RelSeries.trimmed_length_eraseLast_eq obv qcoe]
+            rw[RelSeries.trimmed_length_eraseLast_of_eq obv qcoe]
 
             let rserasedLen : rs.eraseLast.length = n := by aesop
 
@@ -866,11 +966,11 @@ open CompositionSeries in
             let nonempt : (rs.submoduleComap S.f).length > 0 := by aesop
 
             --#check RelSeries.trimmed_length_eraseLast_le
-            rw[RelSeries.trimmed_length_eraseLast_le nonempt leftlt]
+            rw[RelSeries.trimmed_length_eraseLast_of_lt nonempt leftlt]
             exact Nat.add_le_add_right iherased 1
 
 
-          · let q' : (rs.submoduleMap S.g).toFun n < (rs.submoduleMap S.g).toFun (n + 1) := by
+          · have q' : (rs.submoduleMap S.g).toFun n < (rs.submoduleMap S.g).toFun (n + 1) := by
               let leq := (rs.submoduleMap S.g).step n'
               rw [@le_iff_eq_or_lt] at leq
               simp
@@ -879,9 +979,9 @@ open CompositionSeries in
               simp at qdif
               obtain h | h := leq
 
-              · let hdif : (rs.submoduleMap S.g).toFun n' = (rs.submoduleMap S.g).toFun (n' + 1) := by
+              · have hdif : (rs.submoduleMap S.g).toFun n' = (rs.submoduleMap S.g).toFun (n' + 1) := by
                   simp
-                  let ncast : (rs.submoduleMap S.g).toFun n =
+                  have ncast : (rs.submoduleMap S.g).toFun n =
                               (rs.submoduleMap S.g).toFun n'.castSucc := by
                     --let neqiv : n = n'.castSucc := rfl
                     apply congr_arg
@@ -893,13 +993,13 @@ open CompositionSeries in
                     omega
 
 
-                  let n'cast : (rs.submoduleMap S.g).toFun (n+1) =
+                  have n'cast : (rs.submoduleMap S.g).toFun (n+1) =
                                (rs.submoduleMap S.g).toFun n'.succ := by
                     apply congr_arg
                     apply Fin.eq_of_val_eq
 
 
-                    let rightlen : (rs.submoduleMap S.g).length  = rs.length := rfl
+                    have rightlen : (rs.submoduleMap S.g).length  = rs.length := rfl
                     simp[rightlen]
 
                     unfold Nat.cast
@@ -908,8 +1008,7 @@ open CompositionSeries in
                     unfold Fin.ofNat''
                     simp
 
-
-                    let mas' : n < (rs.submoduleMap S.g).length + 1 := by
+                    have mas' : n < (rs.submoduleMap S.g).length + 1 := by
                       rw[rightlen]
                       rw[o]
                       omega
@@ -918,7 +1017,7 @@ open CompositionSeries in
                     let need := Nat.mod_eq_of_lt mas'
 
                     simp[need]
-                    let mas'' : n + 1 < (rs.submoduleMap S.g).length + 1 := by
+                    have mas'' : n + 1 < (rs.submoduleMap S.g).length + 1 := by
                       rw[rightlen]
                       rw[o]
                       omega
@@ -961,9 +1060,9 @@ open CompositionSeries in
                   -/
 
                 exact False.elim (q hdif)
-              · let hdif : (rs.submoduleMap S.g).toFun n' < (rs.submoduleMap S.g).toFun (n' + 1) := by
+              · have hdif : (rs.submoduleMap S.g).toFun n' < (rs.submoduleMap S.g).toFun (n' + 1) := by
                   simp
-                  let ncast : (rs.submoduleMap S.g).toFun n =
+                  have ncast : (rs.submoduleMap S.g).toFun n =
                               (rs.submoduleMap S.g).toFun n'.castSucc := by
                     --let neqiv : n = n'.castSucc := rfl
                     apply congr_arg
@@ -975,13 +1074,13 @@ open CompositionSeries in
                     omega
 
 
-                  let n'cast : (rs.submoduleMap S.g).toFun (n+1) =
+                  have n'cast : (rs.submoduleMap S.g).toFun (n+1) =
                                (rs.submoduleMap S.g).toFun n'.succ := by
                     apply congr_arg
                     apply Fin.eq_of_val_eq
 
 
-                    let rightlen : (rs.submoduleMap S.g).length  = rs.length := rfl
+                    have rightlen : (rs.submoduleMap S.g).length  = rs.length := rfl
                     simp[rightlen]
 
                     unfold Nat.cast
@@ -991,7 +1090,7 @@ open CompositionSeries in
                     simp
 
 
-                    let mas' : n < (rs.submoduleMap S.g).length + 1 := by
+                    have mas' : n < (rs.submoduleMap S.g).length + 1 := by
                       rw[rightlen]
                       rw[o]
                       omega
@@ -1000,33 +1099,16 @@ open CompositionSeries in
                     let need := Nat.mod_eq_of_lt mas'
 
                     simp[need]
-                    let mas'' : n + 1 < (rs.submoduleMap S.g).length + 1 := by
+                    have mas'' : n + 1 < (rs.submoduleMap S.g).length + 1 := by
                       rw[rightlen]
                       rw[o]
                       omega
-                      --rw[rightlen]
-                    --let need' := Nat.mod_eq_of_lt mas''
+
                     simp[Fin.add_def]
                     rw[rightlen]
                     exact Nat.succ_lt_succ_iff.mp mas''
 
-                    --simp[HAdd.hAdd, Fin.val]
 
-
-
-
-
-                    --rw[need]
-                    --ring_nf
-
-                    /-
-                    apply Fin.eq_mk_iff_val_eq.mp ?h.a.a
-                    rw[rightlen]
-                    omega
-
-                    apply Fin.eq_of_val_eq
-                    simp
-                    -/
 
                   rw[ncast]
                   rw[n'cast]
@@ -1034,28 +1116,36 @@ open CompositionSeries in
                 exact hdif
 
 
-            let q'' : (rs.submoduleMap S.g).toFun ((rs.submoduleMap S.g).length - 1) <
+            have q'' : (rs.submoduleMap S.g).toFun ((rs.submoduleMap S.g).length - 1) <
                       (rs.submoduleMap S.g).toFun ((rs.submoduleMap S.g).length) := by
-              let stepo := (rs.submoduleMap S.g).step n'
+              have leneq : (rs.submoduleMap S.g).length = rs.length := rfl
+              simp_all
+
+
+
               --let something := (Ne.le_iff_lt q).1 stepo
               --let rightlen : (rs.submoduleMap S.g).length  = rs.length := rfl
 
-              sorry
+            /-
+            have qleft : (rs.submoduleComap S.f).toFun ((rs.submoduleComap S.f).length - 1) =
+                      (rs.submoduleComap S.f).toFun ((rs.submoduleComap S.f).length) := by
+              have leneq : (rs.submoduleComap S.f).length = rs.length := rfl
 
-            let qright : (rs.submoduleComap S.f).toFun ((rs.submoduleComap S.f).length - 1) <
-                      (rs.submoduleComap S.f).toFun ((rs.submoduleComap S.f).length) := sorry
+              simp_all
 
-            let nonempt : (rs.submoduleMap S.g).length > 0 := by exact Fin.pos n'
-            rw[RelSeries.trimmed_length_eraseLast_le nonempt q'']
+              sorry -/
+
+            have nonempt : (rs.submoduleMap S.g).length > 0 := by exact Fin.pos n'
+            rw[RelSeries.trimmed_length_eraseLast_of_lt nonempt q'']
 
             let rserasedLen : rs.eraseLast.length = n := by aesop
 
             let iherased := ih rs.eraseLast rserasedLen
 
-            let makeIntoLemma : (rs.submoduleComap S.f).eraseLast.trimmed_length ≤
-                                (rs.submoduleComap S.f).trimmed_length := by
-              let proof := (rs.submoduleComap S.f).trimmed_length_eraseLast_le nonempt qright
-              omega
+            have makeIntoLemma : (rs.submoduleComap S.f).eraseLast.trimmed_length ≤
+                                (rs.submoduleComap S.f).trimmed_length :=
+            RelSeries.trimmed_length_eraseLast_le (rs.submoduleComap S.f) (by aesop)
+
 
             suffices n + 1 ≤ (rs.submoduleMap S.g).eraseLast.trimmed_length +
                              1 + (rs.submoduleComap S.f).eraseLast.trimmed_length by
@@ -1074,12 +1164,104 @@ open CompositionSeries in
 
   -- Not completed because it's not clear if this is necessary. Could be useful for the trimmed
   -- length api though
+
+
+  lemma trimed_length_existence (rs : RelSeries (α := Submodule R M) (· ≤ ·)) {m : ℕ}
+    (hm : m < rs.trimmed_length) : ∃ n : ℕ, rs.toFun n ≠ rs.toFun m := sorry
+
+
+  open Classical in
+  noncomputable
+  def helper
+    (rs : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a ≤ b)) (n : ℕ)
+    (acc : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a < b))
+    (inv1 : acc.head = rs n) (inv2 : n ≤ rs.length)
+    : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a < b) :=
+    match p : n with
+    | 0   => acc
+    | m+1 => if h : (rs m < rs n)
+             then by
+              have : rs m < acc.head := by aesop
+              exact helper rs m (acc.cons (rs m) this) (by aesop) (Nat.le_of_succ_le inv2)
+
+             else by
+              have h' : rs m = rs n := by
+                --let stepo := rs.step {val := m, isLt := inv2}
+                have inv2' : m < rs.length := by aesop
+                have : m % (rs.length + 1) = m := by
+                  apply Nat.mod_eq_of_lt
+                  exact Nat.lt_add_right 1 inv2
+                simp_all
+
+                let m' : Fin rs.length := {val := m, isLt := inv2'}
+                let stepo := rs.step m'
+
+                let mas : rs m ≤ rs n := by
+                  have : rs m = rs m' := sorry
+                  subst p
+                  simp_all only [Nat.cast_add, Nat.cast_one, Nat.succ_eq_add_one, ge_iff_le]
+
+                  sorry
+
+
+                  --Nat.mod_eq_of_lt
+                  --sorry
+
+
+
+
+
+                obtain q | q := le_iff_eq_or_lt.mp mas
+                all_goals simp_all
+
+              exact helper rs m acc (by aesop) (Nat.le_of_succ_le inv2)
+
+
+
+
+  open Classical in
+  noncomputable
+  def RelSeries.induced_lt_relSeries_of_le_relSeries
+    (rs : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a ≤ b))
+    : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a < b) :=
+    helper rs rs.length (RelSeries.singleton (· < ·) rs.last) (by aesop) (by aesop)
+
+
+
+
+  lemma length_of_induced_relseries (rs : RelSeries (α := Submodule R M) (· ≤ ·)) :
+   rs.induced_lt_relSeries_of_le_relSeries.length = rs.trimmed_length := by sorry
+   /-simp[RelSeries.induced_lt_relSeries_of_le_relSeries, RelSeries.trimmed_length]--, go, RelSeries.cons_length]
+
+   induction' o : rs.length with n ih generalizing rs
+   · simp[go, helper]
+   · simp[go, helper]
+     split
+     next h =>
+      split
+      next q =>
+        /-
+        This case shouldn't be possible, here we're essentially saying that we've just hit an element
+        which is not equal to the last one. Potentially should change the definition to make that
+        more transparent for proofs like this
+        -/
+
+      next q =>
+      sorry
+     next h =>
+      sorry
+    -/
+
+
+
   /-
   open Classical in
   noncomputable
   def induced_lt_relSeries_of_le_relSeries
     (rs : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a ≤ b))
-    : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a < b) := {
+    : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a < b) := by
+
+    let ret : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a < b) :=  {
       length := RelSeries.trimmed_length rs
       toFun := fun n ↦ match n.val with
                 | 0     => rs.toFun 0
@@ -1088,225 +1270,348 @@ open CompositionSeries in
                   let existance : (∃ n : ℕ, rs.toFun ↑n ≠ rs.toFun ↑m) := sorry
                   let input := (Nat.find (p := fun (k : ℕ) ↦ rs.toFun k ≠ rs.toFun m)) existance
                   exact rs.toFun input
-      step := sorry
+      step := by
+        intro i
+        simp
+        split
+        next k hi =>
+          #check trimed_length_existence rs
+          simp[hi, Nat.find_spec]
+
+
+          sorry
+
+        sorry
     }
+    exact ret
   -/
+
+  --#check ciSup_add_le
+
 
   /-
-  This proof should go something like this: take rs some RelSeries. We case match on whether every
-  inequality in rs is maximal. If so, then rs must be a composition series and we're done by
-  Jordan Holder. If not, then we must have that there is somewhere where our series can split.
-
-  In this second case, I think we do induction. We want to prove if there exists some non maximal
-  guy, then trimmed length of rs is less than the length of the module. For zero case, I think we're
-  done trivially. For inductive case, we assume this holds for all rs of length n. Then, for n+1,
-  take the point where we have a non-maximal inequality. We should be able to show we can split this
-  into two inequalities.
-
-  Hmm. Idea is if there exists such a non-maximal inequality, we can construct a sequence which
-  clearly has greater length.
-
-
-
+  So this is not true (or at least not obviously),
   -/
+  /-
+  synth SupSet ℕ
+  theorem iSup_le_add {α : Type*} {ι ι': Sort*} [Nonempty ι] [Nonempty ι']
+   [ConditionallyCompleteLattice α] [AddMonoid α] {f : ι → α} --[HAdd α α α] {f : ι → α}
+   {g : ι' → α} {a : α} :
+  iSup f + iSup g ≤ a ↔ ∀ (i: ι) (j : ι'), f i + g j ≤ a := by
+  -/
+
+
+    --simp_rw [iSup_add, add_iSup]
+   --rw [iSup_congr (congrFun rfl)]
+   --#check iSup_le_iff
+   --#check iSup_add
+   /-
+   constructor
+   ·
+     sorry
+   · intro fa
+
+     sorry
+    -/
+    --sorry
+
+  --#synth SupSet <| ℕ
+  --#eval (⊥ : WithBot ℕ∞)
+
+  /-
+  There is a very similar result about ENNReal which would be potentially useful to generalize,
+  I think I could port their proof over without too much difficutly, but finding an appropriate
+  geberalization for them both is proving to be kind of annoying.
+
+  There is of course also the conditional lattice business which has similar lemmas assuming the
+  addition is in a group and that the order has a kind of reverse cancellative property wrt to the
+  addition, but it's unclear how to generalise this to the case we want, especially considering
+  that in our application, we're not actually working with a monoid which embeds into it's
+  "groupification", since a monoid needs to be cancellative for this to be the case which gets
+  messed around by adding infinities
+  -/
+  theorem iSup_le_add {ι ι': Sort*} [Nonempty ι] [Nonempty ι']
+   {f : ι → WithBot ℕ∞} {g : ι' → WithBot ℕ∞} {a : WithBot ℕ∞} :
+  iSup f + iSup g ≤ a ↔ ∀ (i: ι) (j : ι'), f i + g j ≤ a := by
+    apply Iff.intro
+    · intro a_1 i j
+
+      sorry
+    · intro a_1
+
+      sorry
+    --simp[WithBot.instSupSet, ConditionallyCompleteLattice.toSupSet]
+
+
+  /-
+  lemma exists_series_with_trimmed_length (rs : RelSeries (α := Submodule R M) (· ≤ ·))
+    {m : ℕ} (hrs : rs.trimmed_length = m.succ) :
+    ∃ rs' : RelSeries (α := Submodule R M) (· ≤ ·), rs'.trimmed_length = m := by
+    induction' o : rs.trimmed_length with n ih generalizing rs
+    · aesop
+    · simp_all only [Nat.succ_eq_add_one, add_left_inj, add_right_eq_self, one_ne_zero, not_isEmpty_of_nonempty,
+        IsEmpty.exists_iff, false_implies, implies_true]
+      subst hrs
+
+      sorry
+  -/
+
+
+  -- This might be doable with induction and snoc, then we don't need to explicitly define our helper
+  -- function with all of its annoying index gymnastics
+
+  /-
+
+  Whilst I think such a lemma is a good idea to develop, I think it's more promising to try to
+  work through other means
+
+  #check RelSeries
+  def RelSeries.normal_form {α : Type*} {r : Rel α α} (rs : RelSeries r) :
+    (∃ a : α, rs = RelSeries.singleton r a) ∨
+    (∃ rs' : RelSeries r, ∃ a : α, ∃ ha : r a rs'.head, rs = rs'.cons a ha)
+    := by
+    let rslist : List α := rs.toList
+    let rslistchain := rs.toList_chain'
+
+    #check RelSeries.fromListChain'
+    sorry
+
+    -/
+
+      /-
+      match o : rs.length with
+      | 0 =>
+        --have : rs = RelSeries.singleton r rs.head := by sorry
+        apply Or.inl
+        use rs.head
+        unfold RelSeries.singleton
+
+        sorry
+      | m+1 =>
+        apply Or.inr
+        --have rs.length ≠
+        use rs.tail (by aesop)
+        use rs.head
+        let z : Fin rs.length := {val := 0, isLt := by aesop}
+        use rs.step z
+
+        -/
+
+
+
+  /-
+  Note: this is just a rewriting of the definition of smash which yields a more general notion
+  of concatenation. In principal I think smash should be defined in terms of concat but it might
+  be annoying to do this replacement in practice.
+  -/
+  def concat {α : Type*} {r : Rel α α} (p q : RelSeries r) (connect : r p.last q.head) : RelSeries r where
+  length := p.length + q.length + 1
+  toFun i :=
+    if H : i.1 < p.length + 1
+    then p ⟨i.1, H⟩
+    else q ⟨i.1 - (p.length + 1),
+            Nat.sub_lt_left_of_lt_add (by rwa [not_lt] at H)
+            (by rw [← add_assoc]; ring_nf at i; omega)⟩
+  step i := by
+    dsimp only
+    by_cases h₂ : i.1 + 1 < p.length + 1
+    · have h₁ : i.1 < p.length + 1 := by omega
+      have h₁' : i.1 < p.length := by omega
+      erw [dif_pos h₁, dif_pos h₂]
+      convert p.step ⟨i, h₁'⟩ using 1
+    · erw [dif_neg h₂]
+      by_cases h₁ : i.1 < p.length + 1
+      · erw [dif_pos h₁]
+        have h₃ : p.length = i.1 := by omega
+        convert connect
+        · simp_all
+          have check : p.last = p.toFun (p.length) := by simp[RelSeries.last]
+          rw[check]
+          apply congr_arg
+          apply Fin.eq_of_val_eq
+          simp
+          exact h₃.symm
+        · simp_all
+          exact rfl
+
+      · erw [dif_neg h₁]
+        convert q.step ⟨i.1 - (p.length + 1), _⟩ using 1
+        · congr
+          change (i.1 + 1) - _ = _
+          rw [Nat.sub_add_comm]
+          rwa [not_lt] at h₁
+        · have imas : ↑i < p.length + 1 + q.length := by omega
+          refine Nat.sub_lt_left_of_lt_add ?_ imas
+          rwa [not_lt] at h₁
+  /-
+  def RelSeries.concat {α : Type*} {r : Rel α α} (rs : RelSeries r) (rs' : RelSeries r)
+    (headtail : r rs.last rs'.head) : RelSeries r := {
+      length := rs.length + rs'.length
+      toFun := fun i ↦ if i ≤ rs.length then rs i else rs' (i - rs.length)
+      step := by
+        intro i
+        simp_all
+        split
+        sorry
+        sorry
+    }
+  -/
+  /-
+  #check RelSeries.fromListChain'
+  def RelSeries.fromList_cons {α : Type*} {r : Rel α α} (xs : List α) (x_ne_nil : xs ≠ [])
+    (cx : List.Chain' r xs) {hdx : α} {ys : List α} (hxs : xs = List.cons hdx ys) : RelSeries.fromListChain' xs x_ne_nil cx = RelSeries.cons hdx
+  -/
+
+  lemma exists_relseries_with_trimmed_length (rs : RelSeries (α := Submodule R M) (· ≤ ·)) :
+    ∃ (rs' : RelSeries (α := Submodule R M) (· < ·)),
+    rs'.length = rs.trimmed_length ∧ ∀ i : Fin (rs.length + 1), ∃ j : Fin (rs'.length + 1), rs i = rs' j:= by
+    induction' o : rs.trimmed_length with n ih generalizing rs
+    · use RelSeries.singleton (α := Submodule R M) (· < ·) (rs.head)
+      constructor
+      · exact rfl
+      · intro i
+        use 0
+
+        sorry
+    · have : rs.trimmed_length > 0 := by aesop
+
+      /-
+      Find an index i where rs i < rs (i+1). The idea here is we want to remove i (or, I suppose, i+1),
+      then we should reduce the trimmed length by 1, and yield an ltseries of length n by the ih.
+      Note that rs (i-1) may be either equal or less than rs i.
+
+      The argument should then be that we place rs i back into the lt series to get our final thing
+      of length n+1. I think for this we need to prove a slightly stronger statement, because as
+      it is we don't know anything about the form of this ltseries we're producing.
+
+      We want to say that all the terms of rs' are terms of rs and that all terms in rs appear in rs'
+      In other words, we want to say that ∀ i : Fin (rs.length), ∃ j : Fin (rs'.length), rs i = rs' j.
+      To use this, we just need to find the index j which is equal to rs (i+1), then we insert our rs i
+      before it (we do this by case matching on whether rs' (j-1) is equal to rs i or not, either way
+      we win).
+
+      -/
+      obtain ⟨i, hi⟩ := RelSeries.trimmed_length_exists_le this
+
+      -- We now wish to remove something from the
+      let left := rs.take (i-1)
+      let right := rs.drop i
+      have connect : left.last ≤ right.head := by sorry
+      let forih := concat left right connect
+      have h₁ : forih.trimmed_length = n := by sorry
+
+      obtain ⟨fih, hfih⟩ := ih forih h₁
+
+
+      sorry
+
+
   theorem Module.length_ge_trimmed_length
   (rs : RelSeries fun (a : Submodule R M) (b : Submodule R M) => a ≤ b)
-   : RelSeries.trimmed_length rs ≤ Module.length fl := by
-
-    --simp[RelSeries.trimmed_length]
-
-    /-
-    THIS PROOF IS A MISTAKE THAT SHOULDN'T BE REPEATED. THE TRIMMED LENGTH IS DEFINED IN TERMS OF
-    RS.LENGTH, NOT THE LENGTH OF THE MODULE, SO THERE'S NO WAY TO PROCEEED USING THIS PROOF
-    TECHNIQUE OF TRYING TO DO INDUCTION WITH ERASELAST BECAUSE THAT INEQUALITY MAY VERY WELL BE
-    MAXIMAL
-
-    induction' o : rs.length with n ih generalizing rs
-    · simp[RelSeries.trimmed_length]
-      rw[o]
-      simp[go]
-    · let erlen : rs.eraseLast.length = n := by aesop
-      let ih' := ih rs.eraseLast erlen
-      --#check rs.trimmed_length_eraseLast_le
-      let succase : rs.length > 0 := by aesop
-      obtain h | h := em <| rs.toFun ↑rs.length = rs.toFun (rs.length - 1)
-      · let ereq := rs.trimmed_length_eraseLast_eq succase h
-        rw[ereq]
-        exact ih'
-      · let h' : rs.toFun (rs.length - 1) < rs.toFun rs.length := sorry
-        let erlt := rs.trimmed_length_eraseLast_le succase h'
-        rw[erlt]
-    -/
+   : RelSeries.trimmed_length rs ≤ Module.length R M := by
+    obtain ⟨rs', hrs'⟩ := exists_relseries_with_trimmed_length rs
+    rw[← hrs'.1]
+    rw[Module.length, krullDim]
+    exact le_iSup_iff.mpr fun b a ↦ a rs'
 
 
 
 
-        sorry
-      /-
-      simp[go]
-      split
-      next h_1 =>
-        let erlen : rs.eraseLast.length = n := by aesop
-        let ih' := ih rs.eraseLast erlen
-        let mas : go rs n = go rs.eraseLast n := by
-          #check rs.trimmed_length_eraseLast_le
-          apply go_equiv
-          · omega
-          · omega
-          · intro i ltn
+  theorem checking (a : Submodule R M) (l : ¬ a = ⊥) : ⊥ < a := Ne.bot_lt' fun a_1 ↦
+    l (id (Eq.symm a_1))
 
-            sorry
+  /-
 
+  It would be good to have a less stupid definition here
 
-        rw[mas]
-        exact ih'
-      next h_1 =>
-        sorry
-      -/
-
-    /-
-    simp[RelSeries.trimmed_length]
-    rw[isFiniteLength_iff_exists_compositionSeries] at fl
-    obtain ⟨cs, hcs⟩ := fl
-
-    induction' h : rs.length with n ih generalizing rs
-    · exact StrictMono.minimal_preimage_bot (fun ⦃a b⦄ a ↦ a) rfl (length fl)
-    · simp[go]
-      split
-      · next h_1 =>
-        let mas : rs.eraseLast.length = n := by aesop
-        let ihel := ih rs.eraseLast mas
-        let bigstep : go rs.eraseLast n = go rs n := sorry
-        rw[← bigstep]
-        exact ihel
-      · next h_1 =>
-          let mas : rs.eraseLast.length = n := by aesop
-          let ihel := ih rs.eraseLast mas
-          let bigstep : go rs.eraseLast n = go rs n := sorry
-          rw[← bigstep]
-          rw[Module.length_witness fl cs hcs]
-
-
-          /-
-          Here, we need to somehow use the fact that rs.toFun n < rs.toFun (n+1). We'd really like to
-          case match on whether this is maximal or not.
-          -/
-          sorry
-    -/
-
-
-
+  open Classical in
+  noncomputable
+  def RelSeries.topbot --{α : Type*} [Preorder α] [Bot α] [Top α]
+                       (rs : RelSeries (α := Submodule R M) (· < ·)) : RelSeries (α := Submodule R M) (· < ·) :=
+  if hh : rs.head = ⊥
+  then (if th : rs.last = ⊤ then rs else rs.snoc ⊤ (Ne.lt_top' (id (Ne.symm th))))
+  else (if th : rs.last = ⊤ then rs.cons ⊥ (Ne.bot_lt' fun a_1 ↦ hh (id (Eq.symm a_1))) else rs)
+-/
 
 
 
 
     theorem Module.length_additive
-    {S : CategoryTheory.ShortComplex (ModuleCat R)} (hS : S.ShortExact)
-      (fl1 : IsFiniteLength R S.X₁) (fl2 : IsFiniteLength R S.X₂) (fl3 : IsFiniteLength R S.X₃):
-      Module.length fl2 = Module.length fl1 + Module.length fl3 := by
+    {S : CategoryTheory.ShortComplex (ModuleCat R)} (hS : S.ShortExact) :
+      Module.length R S.X₂ = Module.length R S.X₁ + Module.length R S.X₃ := by
 
-    rw [Nat.le_antisymm_iff]
-    rw[isFiniteLength_iff_exists_compositionSeries] at fl1 fl2 fl3
 
-    choose s1 hs1 using fl1
-    choose s2 hs2 using fl2
-    choose s3 hs3 using fl3
-
-    rw[Module.length_witness fl1 s1 hs1]
-    rw[Module.length_witness fl2 s2 hs2]
-    rw[Module.length_witness fl3 s3 hs3]
+    simp only [length, krullDim, le_antisymm_iff, iSup_le_iff]
 
     constructor
-    · let trimmedProof := trimmed_length_additive hS s2.lt_series
-      let s2mas : s2.lt_series.length = s2.length := rfl
-      rw[s2mas] at trimmedProof
+    · intro rs
 
-      let detrimg := RelSeries.trimmed_length_leq_length (s2.lt_series.submoduleMap S.g)
-      let detrimf := RelSeries.trimmed_length_leq_length (s2.lt_series.submoduleComap S.f)
+      let trimmedProof := trimmed_length_additive hS rs
 
 
-      let trimleft := Module.length_ge_trimmed_length fl1 (s2.lt_series.submoduleComap S.f)
-      let trimright := Module.length_ge_trimmed_length fl3 (s2.lt_series.submoduleMap S.g)
+      let detrimg := RelSeries.trimmed_length_leq_length (RelSeries.submoduleMap rs S.g)
+      let detrimf := RelSeries.trimmed_length_leq_length (RelSeries.submoduleComap rs S.f)
 
-      rw[Module.length_witness fl1 s1 hs1] at trimleft
-      rw[Module.length_witness fl3 s3 hs3] at trimright
 
-      let inbet : (s2.lt_series.submoduleComap S.f).trimmed_length +
-        (s2.lt_series.submoduleMap S.g).trimmed_length
-        ≤ s1.length + s3.length := by exact Nat.add_le_add trimleft trimright
+      let trimleft := Module.length_ge_trimmed_length (RelSeries.submoduleComap rs S.f)
+      let trimright := Module.length_ge_trimmed_length (RelSeries.submoduleMap rs S.g)
 
-      apply Nat.le_trans (m := (s2.lt_series.submoduleComap S.f).trimmed_length +
-        (s2.lt_series.submoduleMap S.g).trimmed_length)
+      let inbet : (RelSeries.submoduleComap rs S.f).trimmed_length +
+        (RelSeries.submoduleMap rs S.g).trimmed_length
+        ≤ Module.length R S.X₁ + Module.length R S.X₃ := by exact add_le_add trimleft trimright
 
+
+      apply le_trans (b := ↑((RelSeries.submoduleComap rs S.f).trimmed_length + (RelSeries.submoduleMap rs S.g).trimmed_length))
+
+      apply Nat.mono_cast
       rw[Nat.add_comm] at trimmedProof
       exact trimmedProof
       exact inbet
 
-      --  "Easy" direction - just take composition series for M' and M'' and stick them together
-    · let gInv : RelSeries (fun (a : Submodule R S.X₂) (b : Submodule R S.X₂) => a < b) :=
-        CompositionSeries.relSeries_of_surjective hS.moduleCat_surjective_g s3
+
+
+    · rw[iSup_le_add]
+      --#check ciSup_add_ciSup_le
+      --apply (ciSup_add_ciSup_le )
+      intro rstemp rstemp'
+      obtain ⟨rs, hrs⟩ := RelSeries.chain_le_bot_top rstemp
+      obtain ⟨rs', hrs'⟩ := RelSeries.chain_le_bot_top rstemp'
+
+
+      let gInv : RelSeries (fun (a : Submodule R S.X₂) (b : Submodule R S.X₂) => a < b) :=
+        RelSeries.submoduleComap_surjective hS.moduleCat_surjective_g rs'
 
 
       let fIm : RelSeries (fun (a : Submodule R S.X₂) (b : Submodule R S.X₂) => a < b) :=
-        CompositionSeries.relSeries_of_injective hS.moduleCat_injective_f s1
+        RelSeries.submoduleMap_injective hS.moduleCat_injective_f rs
 
 
       have connect : fIm.last = gInv.head := by
         let gInvheadker : gInv.head = LinearMap.ker S.g := by
-          simp[gInv, CompositionSeries.relSeries_of_surjective, RelSeries.head]
-          let obv : s3.toFun 0 = ⊥ := by aesop
+          simp[gInv, RelSeries.submoduleComap_surjective, RelSeries.head]
+          let obv : rs'.toFun 0 = ⊥ := by aesop
           rw[obv]
           exact rfl
         let fImLastRange : fIm.last = LinearMap.range S.f := by
-          simp[fIm, CompositionSeries.relSeries_of_injective, RelSeries.last]
-          let obv : (s1.toFun (Fin.last s1.length)) = ⊤ := by aesop
+          simp[fIm, RelSeries.submoduleMap_injective, RelSeries.last]
+          let obv : (rs.toFun (Fin.last rs.length)) = ⊤ := by aesop
           rw[obv]
           exact Submodule.map_top S.f
 
 
         simp_all only [fIm, fImLastRange, gInv, gInvheadker]
-        obtain ⟨left, right⟩ := hs1
-        obtain ⟨left_1, right_1⟩ := hs2
-        obtain ⟨left_2, right_2⟩ := hs3
         exact CategoryTheory.ShortComplex.Exact.moduleCat_range_eq_ker hS.exact
+      · let smashfg := RelSeries.smash fIm gInv connect
+        have : smashfg.length ≤ (@iSup (WithBot ℕ∞) (LTSeries (Submodule R ↑S.X₂)) WithBot.instSupSet fun p ↦ ↑p.length) := by
+          exact le_iSup_iff.mpr fun b a ↦ a smashfg
 
-      let smashfg := RelSeries.smash fIm gInv connect
-
-      /-
-      At this point, we can also just prove directly that the thing we get is a composition series.
-      -/
-
-      /-
-      let testing : smashfg.IsCompositionSeries := by
-        simp[RelSeries.IsCompositionSeries]
-        constructor
-        · --have hs11 := hs1.1
-          have fbot := Submodule.map_bot S.f
-          simp[smashfg, fbot]
-          have rew : fIm.head = Submodule.map S.f s1.head := rfl
-          rw[rew, hs1.1]
-          exact fbot
-        · constructor
-          · have gtop := Submodule.comap_top S.g
-            simp[smashfg]
-            have rew : gInv.last = Submodule.comap S.g s3.last := rfl
-            rw[rew, hs3.2]
-            exact gtop
-          · intro i
-            simp[JordanHolderModule.instJordanHolderLattice]
-
-            sorry
-            --constructor
-            --· exact smashfg.step i
-            --· intro L bet1 bet2
-        -/
-
-
-
-      let combined := Module.length_ge_relSeries fl2 smashfg
-
-
-      rw[← Module.length_witness fl2 s2 hs2]
-      exact combined
+        let this' : smashfg.length = rs.length + rs'.length := by aesop
+        let step1 : rstemp.length + rstemp'.length ≤ @Nat.cast (WithBot ℕ∞) Semiring.toNatCast smashfg.length := by
+          rw[this']
+          simp
+          refine add_le_add ?h₁ ?h₂
+          simp[hrs.1]
+          simp[hrs'.1]
+        exact le_trans step1 this
 
 end FL
