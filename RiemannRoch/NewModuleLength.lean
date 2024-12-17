@@ -466,6 +466,10 @@ open CompositionSeries in
 
 -/
 
+  example : 1 = 1 := by
+    let h : 1 = 1 := rfl
+    exact h
+
   def RelSeries.submoduleMap (rs : RelSeries (α := Submodule R M) (· < ·))
     (f : M →ₗ[R] M') : RelSeries (α := Submodule R M') (· ≤ ·) :=
       RelSeries.map rs {toFun := Submodule.map f, map_rel' := fun a ↦ Submodule.map_mono (a.le)}
@@ -542,8 +546,8 @@ open CompositionSeries in
           exact ih m (Nat.lt_of_succ_lt ltrs) (Nat.lt_of_succ_lt ltrs') eqs' rfl
         next h_1 =>
           simp_all only [Nat.cast_add, Nat.cast_one]
-          let cont := eqs (m+1) (Nat.le_refl (m + 1))
-          let cont' := eqs m (Nat.le_add_right m 1)
+          have cont := eqs (m+1) (Nat.le_refl (m + 1))
+          have cont' := eqs m (Nat.le_add_right m 1)
           rw[cont'] at h
           simp at cont
           rw[cont] at h
@@ -575,8 +579,8 @@ open CompositionSeries in
           sorry
         -/
       · let h' : ¬rs'.toFun (↑m + 1) = rs'.toFun ↑m := by
-          let eqssm := eqs (m+1) (Nat.le_of_eq (id (Eq.symm rfl)))
-          let eqsm := eqs m (by aesop)
+          have eqssm := eqs (m+1) (Nat.le_of_eq (id (Eq.symm rfl)))
+          have eqsm := eqs m (by aesop)
           simp at eqssm
           rw[eqssm] at h
           rw[eqsm] at h
@@ -584,6 +588,7 @@ open CompositionSeries in
         simp[go, h, h']
         --let ltsmas : m.succ < rs.length + 1 := by exact lt_of_eq_of_lt (id (Eq.symm o)) ltrs
         exact ih m (Nat.lt_of_succ_lt ltrs) (Nat.lt_of_succ_lt ltrs') eqs' rfl
+
 
   theorem RelSeries.trimmed_length_leq_length (rs : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a ≤ b))
   : rs.length ≥ RelSeries.trimmed_length rs := by
@@ -653,7 +658,8 @@ open CompositionSeries in
         --simp_all only [Nat.cast_add, Nat.cast_one]
         simp_all
         specialize notex n
-
+        apply (eq_of_le_of_not_lt _ notex).symm
+        --apply rs.step
 
         -- Should be a rewriting of notex (albeit an awful one)
         sorry
@@ -676,7 +682,6 @@ open CompositionSeries in
       let k : f ⁻¹' S ⊆ f ⁻¹' S' := by
         apply Set.monotone_preimage
         exact lt
-      let j : f ⁻¹' S = f ⁻¹' S' := by aesop
       let jint : Set.range f ⊓ S = Set.range f ⊓ S' := by aesop
       let obv : ¬ (Set.range f ∩ S = Set.range f ∩ S') := by aesop
       exact obv jint
@@ -952,7 +957,7 @@ open CompositionSeries in
 
 
             --let q' : (rs.submoduleMap S.g).toFun n' = (rs.submoduleMap S.g).toFun (n' + 1) := q
-            let leftlt' := RelSeries.submodule_comap_lt_of_map_eq_exact hS rs n' q
+            --let leftlt' := RelSeries.submodule_comap_lt_of_map_eq_exact hS rs n' q
 
             let leftlt : (rs.submoduleComap S.f).toFun ((rs.submoduleComap S.f).length - 1)
             < (rs.submoduleComap S.f).toFun (rs.submoduleComap S.f).length := by
@@ -1165,7 +1170,7 @@ open CompositionSeries in
   -- Not completed because it's not clear if this is necessary. Could be useful for the trimmed
   -- length api though
 
-
+  /-
   lemma trimed_length_existence (rs : RelSeries (α := Submodule R M) (· ≤ ·)) {m : ℕ}
     (hm : m < rs.trimmed_length) : ∃ n : ℕ, rs.toFun n ≠ rs.toFun m := sorry
 
@@ -1224,13 +1229,14 @@ open CompositionSeries in
   def RelSeries.induced_lt_relSeries_of_le_relSeries
     (rs : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a ≤ b))
     : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a < b) :=
-    helper rs rs.length (RelSeries.singleton (· < ·) rs.last) (by aesop) (by aesop)
+    helper rs rs.length (RelSeries.singleton (· < ·) rs.last) (by aesop) (by aesop) -/
 
 
 
 
+  /-
   lemma length_of_induced_relseries (rs : RelSeries (α := Submodule R M) (· ≤ ·)) :
-   rs.induced_lt_relSeries_of_le_relSeries.length = rs.trimmed_length := by sorry
+   rs.induced_lt_relSeries_of_le_relSeries.length = rs.trimmed_length := by sorry -/
    /-simp[RelSeries.induced_lt_relSeries_of_le_relSeries, RelSeries.trimmed_length]--, go, RelSeries.cons_length]
 
    induction' o : rs.length with n ih generalizing rs
@@ -1417,29 +1423,24 @@ open CompositionSeries in
     by_cases h₂ : i.1 + 1 < p.length + 1
     · have h₁ : i.1 < p.length + 1 := by omega
       have h₁' : i.1 < p.length := by omega
-      erw [dif_pos h₁, dif_pos h₂]
-      convert p.step ⟨i, h₁'⟩ using 1
-    · erw [dif_neg h₂]
-      by_cases h₁ : i.1 < p.length + 1
-      · erw [dif_pos h₁]
-        have h₃ : p.length = i.1 := by omega
+      simp only [Fin.coe_castSucc, h₁, ↓reduceDIte, Fin.val_succ, add_lt_add_iff_right, h₁']
+      exact p.step ⟨i, h₁'⟩
+    · simp only [Fin.coe_castSucc, Fin.val_succ, h₂, ↓reduceDIte, Nat.reduceSubDiff]
+      split_ifs with h₁
+      · have h₃ : p.length = i.1 := by omega
         convert connect
         · simp_all
           have check : p.last = p.toFun (p.length) := by simp[RelSeries.last]
           rw[check]
           apply congr_arg
           apply Fin.eq_of_val_eq
-          simp
-          exact h₃.symm
+          simpa using h₃.symm
         · simp_all
           exact rfl
 
-      · erw [dif_neg h₁]
-        convert q.step ⟨i.1 - (p.length + 1), _⟩ using 1
+      · convert q.step ⟨i.1 - (p.length + 1), _⟩ using 1
         · congr
-          change (i.1 + 1) - _ = _
-          rw [Nat.sub_add_comm]
-          rwa [not_lt] at h₁
+          omega
         · have imas : ↑i < p.length + 1 + q.length := by omega
           refine Nat.sub_lt_left_of_lt_add ?_ imas
           rwa [not_lt] at h₁
@@ -1464,16 +1465,21 @@ open CompositionSeries in
 
   lemma exists_relseries_with_trimmed_length (rs : RelSeries (α := Submodule R M) (· ≤ ·)) :
     ∃ (rs' : RelSeries (α := Submodule R M) (· < ·)),
-    rs'.length = rs.trimmed_length ∧ ∀ i : Fin (rs.length + 1), ∃ j : Fin (rs'.length + 1), rs i = rs' j:= by
+    rs'.length = rs.trimmed_length ∧ ∀ i : Fin (rs.length + 1), ∃ j : Fin (rs'.length + 1), rs i = rs' j := by
     induction' o : rs.trimmed_length with n ih generalizing rs
     · use RelSeries.singleton (α := Submodule R M) (· < ·) (rs.head)
       constructor
       · exact rfl
       · intro i
         use 0
+        /-
+        We probably need some lemma here saying that if the trimmed length is 0 then everything
+        is equal, which should just be a relatively straightforward induction argument
+        -/
 
         sorry
     · have : rs.trimmed_length > 0 := by aesop
+
 
       /-
       Find an index i where rs i < rs (i+1). The idea here is we want to remove i (or, I suppose, i+1),
@@ -1493,17 +1499,55 @@ open CompositionSeries in
       -/
       obtain ⟨i, hi⟩ := RelSeries.trimmed_length_exists_le this
 
-      -- We now wish to remove something from the
+      /-
+      takes first i-1 elements of rs
+      -/
       let left := rs.take (i-1)
+
+      /-
+      drops all elements before index i+1
+      -/
       let right := rs.drop i
       have connect : left.last ≤ right.head := by sorry
-      let forih := concat left right connect
-      have h₁ : forih.trimmed_length = n := by sorry
+      let iremoved := concat left right connect
+      have h₁ : iremoved.trimmed_length = n := by sorry
 
-      obtain ⟨fih, hfih⟩ := ih forih h₁
+      obtain ⟨lts, hlts₁, hlts₂⟩ := ih iremoved h₁
+
+      /-
+      iremoved is just rs with i removed, and so the element rs (i+1) will be iremoved i, hence we
+      specialize at i
+      -/
+      --specialize hlts₂ i
+      obtain ⟨j, hj⟩ := hlts₂ i
+
+      have h₂ : iremoved i = rs (i+1) := by sorry
+      --rw[h₂] at hj
+      --rw[hj] at hi
+      by_cases h₃ : lts (j-1) = rs i
+      · /-
+        In this case where lts j-1 = rs i, we can't use insertNth because of course
+        lts (j - 1) < lts (j - 1) is not true.
+
+        This should be fine though since we have concat, we can just take the first j-1 and concat
+        that with cons (rs i) (drop (j-1) lts) or something like this. Indeed, we can also use
+        cons, snoc and smash if we find that the lemmas for concat are too lacking for this
+        -/
+        sorry
+      · have h₃' : lts (j-1) < rs i := sorry
+        rw[h₂] at hj
+        rw[hj] at hi
+
+        /-
+        We want this, but annoyingly j is of the wrong type. Potentially just need to change around
+        the types in the theorem statement
+
+        use (lts.insertNth j (rs i) h₃' hi)
+        -/
 
 
-      sorry
+        sorry
+
 
 
   theorem Module.length_ge_trimmed_length
@@ -1547,10 +1591,6 @@ open CompositionSeries in
     · intro rs
 
       let trimmedProof := trimmed_length_additive hS rs
-
-
-      let detrimg := RelSeries.trimmed_length_leq_length (RelSeries.submoduleMap rs S.g)
-      let detrimf := RelSeries.trimmed_length_leq_length (RelSeries.submoduleComap rs S.f)
 
 
       let trimleft := Module.length_ge_trimmed_length (RelSeries.submoduleComap rs S.f)
