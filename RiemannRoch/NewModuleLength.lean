@@ -344,6 +344,20 @@ section FL
   -- Sps ⨆ i, f i = ⊥, then ⊥ ≥ f i for every i ∈ ι.
   -- Since ι nonempty, we must then have that f i = ⊥ for every i ∈ ι, so a + f i = a + ⊥ = ⊥, and so
   -- the supremum is ⊥ there too. So it should certainly be true.
+
+  lemma withbot_isup_eq_bot_iff {ι : Sort*} [Nonempty ι] (f : ι → WithBot ℕ∞) :
+     ⨆ i, f i = ⊥ ↔ ∀ i, f i = ⊥ := by
+     constructor
+     · intro h i
+       rw[eq_bot_iff]
+       rw[← h]
+       exact le_iSup f i
+     · intro h
+       simp[h]
+
+  variable (a b : ℕ∞)
+  #check a - b
+  #eval (⊤ : ℕ∞) - ⊤
   lemma add_iSup {ι : Sort*} [Nonempty ι] {a : WithBot ℕ∞} (f : ι → WithBot ℕ∞) : a + ⨆ i, f i = ⨆ i,
      a + f i := by
     /-
@@ -362,11 +376,74 @@ section FL
 
     obtain m | hf := eq_or_ne (⨆ i, f i) ⊥
     · simp[m]
+    cases a
+    · simp
+    · rename_i a
+      simp only [ne_eq, iSup_eq_bot, not_forall, WithBot.ne_bot_iff_exists] at hf
+      obtain ⟨i, n, hn⟩ := hf
+      cases a
+      · apply le_top.trans
+        rw[le_iSup_iff]
+        intro l hl
+        specialize hl i
+        simp[hn.symm, ←WithBot.coe_top, ←WithBot.coe_add] at hl
+        simpa using hl
+      · rename_i a
+
+        let g : ι → ℕ∞ := fun i ↦ WithBot.unbot' 0 (f i)
+
+        trans ((a : ℕ∞) : WithBot ℕ∞) + ⨆ i, g i
+        ·
+
+          sorry
+        trans (((⨆ i, a + g i) : ℕ∞) : WithBot ℕ∞)
+        sorry
+        trans ⨆ i, ((a : ℕ∞) : WithBot ℕ∞) + g i
+        · --simp
+
+          sorry
+        · simp
+          intro j
+          rw[le_iSup_iff]
+          intro b hb
+          obtain m | hfj := eq_or_ne (f j) ⊥
+
+          · specialize hb i
+            simp[m, ←hn, g] at hb ⊢
+            apply le_trans _ hb
+            norm_cast
+            exact le_self_add
+          specialize hb j
+          --simp[hfj] at hb ⊢
+          --rw[WithBot.unbot'_coe]
+          suffices g j = f j by rwa[this]
+          dsimp only [g]
+          revert hfj
+          generalize f j = x
+          cases x
+          · simp
+          · simp
+
+
+    /-
+    obtain m | ha := eq_or_ne a ⊥
+    · simp[m]
     obtain m | ha' := eq_or_ne a ⊤
-    · sorry
-    · --refine add_le_of_le_tsub_left_of_le (le_iSup_of_le (Classical.arbitrary _) le_self_add) ?_
+    · simp[m]
+
+      --rw[←WithBot.coe_le_coe]
+
+      simp only [←WithBot.coe_top, ←WithBot.coe_add]
+
+      --rw[WithBot.coe_le_coe]
+
+
+
 
       sorry
+    · --refine add_le_of_le_tsub_left_of_le (le_iSup_of_le (Classical.arbitrary _) le_self_add) ?_
+
+      sorry-/
     --refine add_le_of_le_tsub_left_of_le (le_iSup_of_le (Classical.arbitrary _) le_self_add) ?_
     --exact iSup_le fun i ↦ ENNReal.le_sub_of_add_le_left ha <| le_iSup (a + f ·) i
 
