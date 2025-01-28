@@ -16,7 +16,7 @@ lemma elemOfSup {A : Type*} {x : A} {U : Set A} {F : Set (Set A)}
   (conj : U ∈ F ∧ x ∈ U) : x ∈ sSup F := by
   use U
 
-lemma dumbGarbage {A : Type*} {x : A} {P : Prop} {U V : Set A} (xInV : x ∈ V) (weird : ⋃ (p : P), U = V)
+lemma sillyLemma {A : Type*} {x : A} {P : Prop} {U V : Set A} (xInV : x ∈ V) (weird : ⋃ (p : P), U = V)
   : U = V := by
   aesop
 
@@ -67,7 +67,7 @@ instance : Preorder X.OpenCover' where
     use v.1
     aesop
     simp at hguy
-    let test3 := dumbGarbage hr.2 hguy
+    let test3 := sillyLemma hr.2 hguy
     show x ∈ (guy : Set X)
     rw[test3]
     exact hr.2

@@ -37,7 +37,7 @@ section FL
 
   open Classical in
   noncomputable
-  def Module.length : ℕ :=
+  def Module.length'' : ℕ :=
     Nat.find (p := fun (n : ℕ) ↦
       ∃ s : CompositionSeries (Submodule R M), s.head = ⊥ ∧ s.last = ⊤ ∧ s.length = n) <| by
     rw[isFiniteLength_iff_exists_compositionSeries] at fl
@@ -52,9 +52,10 @@ section FL
   noncomputable
   def Module.length' := krullDim (α := Submodule R M)
 
-  /-
-  def Module.length' : ℕ :=
-    sSup {n : ℕ | (∃ rs : RelSeries (α := Submodule R M) (· < ·), rs.head = ⊥ ∧ rs.last = ⊤ ∧ rs.length = n)}
+  noncomputable
+  def Module.length : ℕ :=
+    sSup {n : ℕ | (∃ rs : RelSeries (α := Submodule R M) (· < ·),
+          rs.head = ⊥ ∧ rs.last = ⊤ ∧ rs.length = n)}
 
   #check Order.krullDim
 
@@ -438,14 +439,13 @@ open CompositionSeries in
   -- Helper function for trimmed length which computes the number of <'s occuring in a leseries
   open Classical in
   noncomputable
-  def go (rs : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a ≤ b)) (n : ℕ) : ℕ :=
+  def go (rs : RelSeries (α := Submodule R M) (· ≤ ·)) (n : ℕ) : ℕ :=
     match n with
       | 0     => 0
       | (m+1) => if rs.toFun n = rs.toFun m then go rs m else 1 + go rs m
 
-  -- Length of an le series only counting steps which are not equality
   noncomputable
-  def RelSeries.trimmed_length (rs : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a ≤ b)) : ℕ :=
+  def RelSeries.trimmed_length (rs : RelSeries (α := Submodule R M) (· ≤ ·)) : ℕ :=
     go rs rs.length
 
   -- a < b < c has length 2
