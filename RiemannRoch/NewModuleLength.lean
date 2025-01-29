@@ -176,16 +176,16 @@ section FL
     {S : CategoryTheory.ShortComplex (ModuleCat R)} (hS : S.ShortExact)
     (rs : RelSeries (α := Submodule R S.X₂) (· < ·)) (i : Fin rs.length)
     --(p : (rs.submoduleMap S.g).toFun i = (rs.submoduleMap S.g).toFun (i+1))
-    (p : (rs.submoduleMap S.g).toFun i.castSucc = (rs.submoduleMap S.g).toFun i.succ)
-    : (rs.submoduleComap S.f).toFun i.castSucc < (rs.submoduleComap S.f).toFun i.succ := by
+    (p : (rs.submoduleMap S.g.hom).toFun i.castSucc = (rs.submoduleMap S.g.hom).toFun i.succ)
+    : (rs.submoduleComap S.f.hom).toFun i.castSucc < (rs.submoduleComap S.f.hom).toFun i.succ := by
 
-      have kernelInt : LinearMap.ker S.g ⊓ (rs.toFun i) < LinearMap.ker S.g ⊓ (rs.toFun (i+1)) := by
-       have p' : Submodule.map S.g (rs.toFun i.castSucc) = Submodule.map S.g (rs.toFun i.succ) :=
+      have kernelInt : LinearMap.ker S.g.hom ⊓ (rs.toFun i) < LinearMap.ker S.g.hom ⊓ (rs.toFun (i+1)) := by
+       have p' : Submodule.map S.g.hom (rs.toFun i.castSucc) = Submodule.map S.g.hom (rs.toFun i.succ) :=
         by aesop
        have ans := kernel_intersection (rs.step i) p'
        aesop
 
-      have exactness : LinearMap.ker S.g = LinearMap.range S.f := by
+      have exactness : LinearMap.ker S.g.hom = LinearMap.range S.f.hom := by
         have proof := CategoryTheory.ShortComplex.Exact.moduleCat_range_eq_ker hS.exact
         exact id (Eq.symm proof)
 
@@ -194,13 +194,13 @@ section FL
       simp_all
 
       have intLem (k : Fin (rs.length + 1)) :
-       (rs.submoduleComap S.f).toFun k = Submodule.comap S.f (LinearMap.range S.f ⊓ rs.toFun k) :=
+       (rs.submoduleComap S.f.hom).toFun k = Submodule.comap S.f.hom (LinearMap.range S.f.hom ⊓ rs.toFun k) :=
          by aesop
       rw[intLem i.castSucc, intLem i.succ]
 
       have lem := Set.preimage_mono_of_range_intersection kernelInt (le_of_lt (rs.step i))
       simp
-      have comap_range : Submodule.comap S.f (LinearMap.range S.f) = ⊤ := by aesop
+      have comap_range : Submodule.comap S.f.hom (LinearMap.range S.f.hom) = ⊤ := by aesop
       rw[comap_range]
       simp
       exact lem
@@ -208,15 +208,15 @@ section FL
 
     theorem RelSeries.submodule_map_lt_of_comap_eq_exact {S : CategoryTheory.ShortComplex (ModuleCat R)} (hS : S.ShortExact)
     (rs : RelSeries (α := Submodule R S.X₂) (· < ·)) (i : Fin rs.length)
-    (p : (rs.submoduleComap S.f).toFun i.castSucc = (rs.submoduleComap S.f).toFun i.succ)
-    : (rs.submoduleMap S.g).toFun i.castSucc < (rs.submoduleMap S.g).toFun i.succ := by
+    (p : (rs.submoduleComap S.f.hom).toFun i.castSucc = (rs.submoduleComap S.f.hom).toFun i.succ)
+    : (rs.submoduleMap S.g.hom).toFun i.castSucc < (rs.submoduleMap S.g.hom).toFun i.succ := by
 
-      let exactness : LinearMap.range S.f = LinearMap.ker S.g :=
+      let exactness : LinearMap.range S.f.hom = LinearMap.ker S.g.hom :=
         CategoryTheory.ShortComplex.Exact.moduleCat_range_eq_ker hS.exact
 
-      let imInt : LinearMap.range S.f ⊓ (rs.toFun i.castSucc) = LinearMap.range S.f ⊓ (rs.toFun i.succ) := by
+      let imInt : LinearMap.range S.f.hom ⊓ (rs.toFun i.castSucc) = LinearMap.range S.f.hom ⊓ (rs.toFun i.succ) := by
         rw[←image_intersection, ←image_intersection]
-        exact congrArg (Submodule.map S.f) p
+        exact congrArg (Submodule.map S.f.hom) p
 
 
       rw[exactness] at imInt
@@ -224,7 +224,7 @@ section FL
       simp_all
 
       let intLem (k : Fin (rs.length + 1)) :
-        (rs.submoduleMap S.g).toFun k = Submodule.map S.g (rs.toFun k) := by aesop
+        (rs.submoduleMap S.g.hom).toFun k = Submodule.map S.g.hom (rs.toFun k) := by aesop
       rw[intLem i.castSucc, intLem i.succ]
 
       exact kernel_intersection' (rs.step i) imInt
@@ -237,7 +237,7 @@ section FL
   theorem trimmed_length_additive
     {S : CategoryTheory.ShortComplex (ModuleCat R)} (hS : S.ShortExact)
       (rs : RelSeries (α := Submodule R S.X₂) (· < ·)) :
-      rs.length ≤ RelSeries.trimmed_length (rs.submoduleMap S.g) + RelSeries.trimmed_length (rs.submoduleComap S.f) := by
+      rs.length ≤ RelSeries.trimmed_length (rs.submoduleMap S.g.hom) + RelSeries.trimmed_length (rs.submoduleComap S.f.hom) := by
 
         induction' o : rs.length with n ih generalizing rs
         · aesop
@@ -246,18 +246,18 @@ section FL
           -- get the job done. If instead we have < on the right, it's even easier because we get
           -- our lemma just by looking at the right series.
           let n' : Fin (rs.length) := {val := n, isLt := by aesop}
-          by_cases q : rs.submoduleMap S.g (n'.castSucc) = rs.submoduleMap S.g n'.succ --(rs.submoduleMap S.g).toFun n = (rs.submoduleMap S.g).toFun (n + 1)
+          by_cases q : rs.submoduleMap S.g.hom (n'.castSucc) = rs.submoduleMap S.g.hom n'.succ --(rs.submoduleMap S.g).toFun n = (rs.submoduleMap S.g).toFun (n + 1)
           · let n' : Fin (rs.length) := {val := n, isLt := by rw[o] ; exact lt_add_one n}
 
             let leleft := RelSeries.submodule_comap_lt_of_map_eq_exact hS rs n' q
             simp at leleft
 
 
-            let obv : (rs.submoduleMap S.g).length > 0 := by exact Fin.pos n'
+            let obv : (rs.submoduleMap S.g.hom).length > 0 := by exact Fin.pos n'
 
             have qcoe' : ∃ i : Fin (rs.length),
-                (rs.submoduleMap S.g).toFun i.succ = (rs.submoduleMap S.g).toFun i.castSucc ∧
-                ↑i + 1 = (rs.submoduleMap S.g).length := by
+                (rs.submoduleMap S.g.hom).toFun i.succ = (rs.submoduleMap S.g.hom).toFun i.castSucc ∧
+                ↑i + 1 = (rs.submoduleMap S.g.hom).length := by
                 use n'
                 exact ⟨id (Eq.symm q), id (Eq.symm o)⟩
 
@@ -269,25 +269,25 @@ section FL
             let iherased := ih rs.eraseLast rserasedLen
 
             have leftlt : ∃ i : Fin (rs.length),
-                (rs.submoduleComap S.f).toFun i.castSucc < (rs.submoduleComap S.f).toFun i.succ ∧
-                ↑i + 1 = (rs.submoduleMap S.g).length := by
+                (rs.submoduleComap S.f.hom).toFun i.castSucc < (rs.submoduleComap S.f.hom).toFun i.succ ∧
+                ↑i + 1 = (rs.submoduleMap S.g.hom).length := by
                 use n'
                 exact ⟨leleft, id (Eq.symm o)⟩
 
 
 
 
-            have leftlength : (rs.submoduleComap S.f).length = n+1 := by aesop
+            have leftlength : (rs.submoduleComap S.f.hom).length = n+1 := by aesop
 
-            have nonempt : (rs.submoduleComap S.f).length > 0 := by aesop
+            have nonempt : (rs.submoduleComap S.f.hom).length > 0 := by aesop
 
             --#check RelSeries.trimmed_length_eraseLast_le
             rw[RelSeries.trimmed_length_eraseLast_of_lt nonempt leftlt]
             exact Nat.add_le_add_right iherased 1
 
 
-          · have q' : rs.submoduleMap S.g n'.castSucc < (rs.submoduleMap S.g).toFun n'.succ := by
-              let leq := (rs.submoduleMap S.g).step n'
+          · have q' : rs.submoduleMap S.g.hom n'.castSucc < (rs.submoduleMap S.g.hom).toFun n'.succ := by
+              let leq := (rs.submoduleMap S.g.hom).step n'
               exact lt_of_le_of_ne leq q
 
 
@@ -300,26 +300,26 @@ section FL
 
             have q'' :
               ∃ i : Fin (rs.length),
-              (rs.submoduleMap S.g) (i.castSucc) <
-              (rs.submoduleMap S.g) i.succ ∧ (i + 1:ℕ) = rs.length := by
+              (rs.submoduleMap S.g.hom) (i.castSucc) <
+              (rs.submoduleMap S.g.hom) i.succ ∧ (i + 1:ℕ) = rs.length := by
                 use n'
                 exact ⟨q', id (Eq.symm o)⟩
 
 
-            have nonempt : (rs.submoduleMap S.g).length > 0 := by exact Fin.pos n'
+            have nonempt : (rs.submoduleMap S.g.hom).length > 0 := by exact Fin.pos n'
             rw[RelSeries.trimmed_length_eraseLast_of_lt nonempt q'']
 
             let rserasedLen : rs.eraseLast.length = n := by aesop
 
             let iherased := ih rs.eraseLast rserasedLen
 
-            have makeIntoLemma : (rs.submoduleComap S.f).eraseLast.trimmed_length ≤
-                                (rs.submoduleComap S.f).trimmed_length :=
-            RelSeries.trimmed_length_eraseLast_le (rs.submoduleComap S.f) (by aesop)
+            have makeIntoLemma : (rs.submoduleComap S.f.hom).eraseLast.trimmed_length ≤
+                                (rs.submoduleComap S.f.hom).trimmed_length :=
+            RelSeries.trimmed_length_eraseLast_le (rs.submoduleComap S.f.hom) (by aesop)
 
 
-            suffices n + 1 ≤ (rs.submoduleMap S.g).eraseLast.trimmed_length +
-                             1 + (rs.submoduleComap S.f).eraseLast.trimmed_length by
+            suffices n + 1 ≤ (rs.submoduleMap S.g.hom).eraseLast.trimmed_length +
+                             1 + (rs.submoduleComap S.f.hom).eraseLast.trimmed_length by
               exact le_add_of_le_add_left this makeIntoLemma
 
             ring_nf
@@ -363,20 +363,8 @@ section FL
   #check a - b
   #eval (⊤ : ℕ∞) - ⊤
   --open ENat
-  lemma add_iSup' {ι : Sort*} [Nonempty ι] {a : WithBot ℕ∞} (f : ι → WithBot ℕ∞) : a + ⨆ i, f i = ⨆ i,
+  lemma add_iSup {ι : Sort*} [Nonempty ι] {a : WithBot ℕ∞} (f : ι → WithBot ℕ∞) : a + ⨆ i, f i = ⨆ i,
      a + f i := by
-    /-
-    The ENNReal proof had essentially this structure; case matching on whether or not a was equal
-    to ∞, proving it easily when a is ∞ since a + ⊤ = ⊤ for any a and going from there.
-
-    The problem here is that this is no longer true of ⊤ in WithBot ℕ∞ since ⊥ + ⊤ = ⊥. So, we can
-    case match away a being ⊥, but if it's ⊤ then the sum could either be ⊤ or ⊥, which makes reasoning
-    the ⊤ case out slightly more difficult.
-    -/
-    /-
-    obtain rfl | ha := eq_or_ne a ⊥
-    · --have : ∀ b : WithBot ℕ∞, ⊤ + b = ⊤ := by sorry
-      simp-/
     refine le_antisymm ?_ <| iSup_le fun i ↦ add_le_add_left (le_iSup ..) _
 
     obtain m | hf := eq_or_ne (⨆ i, f i) ⊥
@@ -416,32 +404,35 @@ section FL
               subst hk
               simp_all only [ENat.some_eq_coe]
               suffices False by exact False.elim this
-              /-
-              hc says that a + g i is bounded by some natural number (not top)
-              hb says that a + sup_i g i is top
-              -/
-              have : ↑a + ⨆ i, g i ≤ k := by
-
-
-
-                sorry
+              have : ↑a + ⨆ i, g i ≤ k := by simpa[ENat.add_iSup]
               simp_all
-
-
-
             · rename_i b
               use b
               subst hk
               simp[hc]
-
-              sorry
-            --sorry
+              constructor
+              · assumption
+              · simp_all
+                suffices (b : ℕ∞) ≤ k by
+                  exact ENat.coe_le_coe.mp this
+                have : ↑a + ⨆ i, g i ≤ k := by simpa[ENat.add_iSup]
+                rw[hb] at this
+                exact this
           exact le_of_eq_of_le (id (Eq.symm hb)) this
 
         trans ⨆ i, ((a : ℕ∞) : WithBot ℕ∞) + g i
-        · --simp
-
-          sorry
+        · simp[WithBot.coe_le_iff, le_iSup_iff]
+          intro b hb
+          obtain m | hb' := eq_or_ne b ⊥
+          · subst m
+            simp_all
+          · have : ∃ b' : ℕ∞, b = b' := by
+              exact Option.ne_none_iff_exists'.mp hb'
+            obtain ⟨b', hb'⟩ := this
+            use b'
+            constructor
+            · assumption
+            · exact fun i ↦ (fun a_1 ↦ (WithBot.coe_le a_1).mp) hb' (hb i)
         · simp
           intro j
           rw[le_iSup_iff]
@@ -488,12 +479,12 @@ section FL
     --exact iSup_le fun i ↦ ENNReal.le_sub_of_add_le_left ha <| le_iSup (a + f ·) i
 
   lemma iSup_add {ι : Sort*} [Nonempty ι] {a : WithBot ℕ∞} (f : ι → WithBot ℕ∞) : (⨆ i, f i) + a = ⨆ i,
-     f i + a := by simp [add_comm, add_iSup']
+     f i + a := by simp [add_comm, add_iSup]
 
   theorem iSup_le_add {ι ι': Sort*} [Nonempty ι] [Nonempty ι']
    {f : ι → WithBot ℕ∞} {g : ι' → WithBot ℕ∞} {a : WithBot ℕ∞} :
   iSup f + iSup g ≤ a ↔ ∀ (i: ι) (j : ι'), f i + g j ≤ a := by
-    simp_rw [iSup_add, add_iSup']
+    simp_rw [iSup_add, add_iSup]
     exact iSup₂_le_iff
     --simp[WithBot.instSupSet, ConditionallyCompleteLattice.toSupSet]
 
@@ -553,15 +544,15 @@ section FL
       let trimmedProof := trimmed_length_additive hS rs
 
 
-      let trimleft := Module.length_ge_trimmed_length (RelSeries.submoduleComap rs S.f)
-      let trimright := Module.length_ge_trimmed_length (RelSeries.submoduleMap rs S.g)
+      let trimleft := Module.length_ge_trimmed_length (RelSeries.submoduleComap rs S.f.hom)
+      let trimright := Module.length_ge_trimmed_length (RelSeries.submoduleMap rs S.g.hom)
 
-      have inbet : (RelSeries.submoduleComap rs S.f).trimmed_length +
-        (RelSeries.submoduleMap rs S.g).trimmed_length
+      have inbet : (RelSeries.submoduleComap rs S.f.hom).trimmed_length +
+        (RelSeries.submoduleMap rs S.g.hom).trimmed_length
         ≤ Module.length R S.X₁ + Module.length R S.X₃ := by exact add_le_add trimleft trimright
 
 
-      apply le_trans (b := ↑((RelSeries.submoduleComap rs S.f).trimmed_length + (RelSeries.submoduleMap rs S.g).trimmed_length))
+      apply le_trans (b := ↑((RelSeries.submoduleComap rs S.f.hom).trimmed_length + (RelSeries.submoduleMap rs S.g.hom).trimmed_length))
 
       apply Nat.mono_cast
       rw[Nat.add_comm] at trimmedProof
@@ -587,16 +578,16 @@ section FL
 
 
       have connect : fIm.last = gInv.head := by
-        have gInvheadker : gInv.head = LinearMap.ker S.g := by
+        have gInvheadker : gInv.head = LinearMap.ker S.g.hom := by
           simp[gInv, RelSeries.submoduleComap_surjective, RelSeries.head]
           let obv : rs'.toFun 0 = ⊥ := by aesop
           rw[obv]
           exact rfl
-        have fImLastRange : fIm.last = LinearMap.range S.f := by
+        have fImLastRange : fIm.last = LinearMap.range S.f.hom := by
           simp[fIm, RelSeries.submoduleMap_injective, RelSeries.last]
           let obv : (rs.toFun (Fin.last rs.length)) = ⊤ := by aesop
           rw[obv]
-          exact Submodule.map_top S.f
+          exact Submodule.map_top S.f.hom
 
 
         simp_all only [fIm, fImLastRange, gInv, gInvheadker]
