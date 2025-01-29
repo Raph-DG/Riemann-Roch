@@ -1,3 +1,4 @@
+/-
 import Mathlib.Order.KrullDimension
 import Mathlib.Order.JordanHolder
 import Mathlib.Topology.KrullDimension
@@ -13,8 +14,11 @@ import Mathlib.Algebra.Homology.ShortComplex.ShortExact
 import Mathlib.Algebra.Homology.ShortComplex.ModuleCat
 import Mathlib.AlgebraicGeometry.Properties
 import Mathlib.RingTheory.FiniteLength
-import Mathlib.Order.ConditionallyCompleteLattice.Group
+import Mathlib.Data.ENat.Lattice
+import Mathlib.Order.ConditionallyCompleteLattice.Group-/
+import Mathlib
 import RiemannRoch.trimmed_length
+
 
 
 open AlgebraicGeometry
@@ -358,7 +362,8 @@ section FL
   variable (a b : ℕ∞)
   #check a - b
   #eval (⊤ : ℕ∞) - ⊤
-  lemma add_iSup {ι : Sort*} [Nonempty ι] {a : WithBot ℕ∞} (f : ι → WithBot ℕ∞) : a + ⨆ i, f i = ⨆ i,
+  --open ENat
+  lemma add_iSup' {ι : Sort*} [Nonempty ι] {a : WithBot ℕ∞} (f : ι → WithBot ℕ∞) : a + ⨆ i, f i = ⨆ i,
      a + f i := by
     /-
     The ENNReal proof had essentially this structure; case matching on whether or not a was equal
@@ -393,11 +398,46 @@ section FL
         let g : ι → ℕ∞ := fun i ↦ WithBot.unbot' 0 (f i)
 
         trans ((a : ℕ∞) : WithBot ℕ∞) + ⨆ i, g i
-        ·
-
-          sorry
+        · suffices ⨆ i, f i ≤ ⨆ i, g i by
+            exact add_le_add_left this ↑↑a
+          simp[g, WithBot.le_coe_iff, le_iSup_iff]
+          intro j m hm b hb
+          specialize hb j
+          simp[hm] at hb
+          exact hb
         trans (((⨆ i, a + g i) : ℕ∞) : WithBot ℕ∞)
-        sorry
+        · simp[WithBot.le_coe_iff, le_iSup_iff]
+          intro b hb c hc
+          simp[←WithBot.coe_add] at hb
+          have : a + ⨆ i, g i ≤ c := by
+            intro k hk
+            cases b
+            · simp
+              subst hk
+              simp_all only [ENat.some_eq_coe]
+              suffices False by exact False.elim this
+              /-
+              hc says that a + g i is bounded by some natural number (not top)
+              hb says that a + sup_i g i is top
+              -/
+              have : ↑a + ⨆ i, g i ≤ k := by
+
+
+
+                sorry
+              simp_all
+
+
+
+            · rename_i b
+              use b
+              subst hk
+              simp[hc]
+
+              sorry
+            --sorry
+          exact le_of_eq_of_le (id (Eq.symm hb)) this
+
         trans ⨆ i, ((a : ℕ∞) : WithBot ℕ∞) + g i
         · --simp
 
@@ -448,12 +488,12 @@ section FL
     --exact iSup_le fun i ↦ ENNReal.le_sub_of_add_le_left ha <| le_iSup (a + f ·) i
 
   lemma iSup_add {ι : Sort*} [Nonempty ι] {a : WithBot ℕ∞} (f : ι → WithBot ℕ∞) : (⨆ i, f i) + a = ⨆ i,
-     f i + a := by simp [add_comm, add_iSup]
+     f i + a := by simp [add_comm, add_iSup']
 
   theorem iSup_le_add {ι ι': Sort*} [Nonempty ι] [Nonempty ι']
    {f : ι → WithBot ℕ∞} {g : ι' → WithBot ℕ∞} {a : WithBot ℕ∞} :
   iSup f + iSup g ≤ a ↔ ∀ (i: ι) (j : ι'), f i + g j ≤ a := by
-    simp_rw [iSup_add, add_iSup]
+    simp_rw [iSup_add, add_iSup']
     exact iSup₂_le_iff
     --simp[WithBot.instSupSet, ConditionallyCompleteLattice.toSupSet]
 
