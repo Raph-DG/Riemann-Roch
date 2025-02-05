@@ -1,4 +1,3 @@
-/-
 import Mathlib.Order.KrullDimension
 import Mathlib.Order.JordanHolder
 import Mathlib.Topology.KrullDimension
@@ -15,9 +14,8 @@ import Mathlib.Algebra.Homology.ShortComplex.ModuleCat
 import Mathlib.AlgebraicGeometry.Properties
 import Mathlib.RingTheory.FiniteLength
 import Mathlib.Data.ENat.Lattice
-import Mathlib.Order.ConditionallyCompleteLattice.Group-/
-import Mathlib
-import RiemannRoch.trimmed_length
+import Mathlib.Order.ConditionallyCompleteLattice.Group
+import RiemannRoch.trimmedLength
 
 
 
@@ -43,50 +41,26 @@ section FL
 
 
 
-
-  def RelSeries.submoduleMap_injective {f : M →ₗ[R] M'} (hf : Function.Injective f)
-      (s : RelSeries (α := Submodule R M) (· < ·)) :
-      RelSeries (α := Submodule R M') (· < ·) := {
-        length := s.length
-        toFun := fun n => Submodule.map f (s.toFun n)
-        step := by {
-          let proof := Submodule.map_strictMono_of_injective hf
-          intro i
-          apply proof
-          exact s.step i
-        }
-      }
-
-  def RelSeries.submoduleComap_surjective {f : M →ₗ[R] M'} (hf : Function.Surjective f)
-      (s : RelSeries (α := Submodule R M') (· < ·)) :
-      RelSeries (α := Submodule R M) (· < ·) := {
-        length := s.length
-        toFun := fun n => Submodule.comap f (s.toFun n)
-        step := by {
-          let proof := Submodule.comap_strictMono_of_surjective hf
-          intro i
-          apply proof
-          exact s.step i
-        }
-      }
-
-
-  theorem RelSeries.chain_le_bot_top
+  /--
+  Given an LTSeries rs, there always exists an LTSeries xs with xs.length ≥ rs.length and
+  the head of xs equal to ⊥ and the last of xs equal to ⊤.
+  -/
+  theorem RelSeries.exists_ltSeries_ge_head_bot_last_top
   (rs : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a < b))
   : ∃ xs : RelSeries (α := Submodule R M) (· < ·),
     xs.length ≥ rs.length ∧ xs.head = ⊥ ∧ xs.last = ⊤ := by
-    obtain h | h := em (rs.head = ⊥)
-    · obtain q | q := em (rs.last = ⊤)
+    by_cases h : rs.head = ⊥
+    · by_cases q : rs.last = ⊤
       · use rs
       · have : rs.last < ⊤ := by exact Ne.lt_top' fun a ↦ q (id (Eq.symm a))
         use rs.snoc ⊤ this
         aesop
     · have : ⊥ < rs.head := by exact Ne.bot_lt' fun a ↦ h (id (Eq.symm a))
-      obtain q | q := em (rs.last = ⊤)
+      by_cases q : rs.last = ⊤
       · use rs.cons ⊥ this
         aesop
       · let this' : (rs.cons ⊥ this).last < ⊤ := by
-          simp
+          simp only [last_cons]
           exact Ne.lt_top' fun a ↦ q (id (Eq.symm a))
         use (rs.cons ⊥ this).snoc ⊤ this'
         simp only [snoc_length, cons_length, ge_iff_le, head_snoc, head_cons, last_snoc, and_self,
@@ -94,7 +68,7 @@ section FL
         omega
 
 
-
+  -- This should probably be for any relseries with a relation r satisfying r implies ≤
   def RelSeries.submoduleMap (rs : RelSeries (α := Submodule R M) (· < ·))
     (f : M →ₗ[R] M') : RelSeries (α := Submodule R M') (· ≤ ·) :=
       RelSeries.map rs {toFun := Submodule.map f, map_rel' := fun a ↦ Submodule.map_mono (a.le)}
@@ -102,9 +76,6 @@ section FL
   def RelSeries.submoduleComap (rs : RelSeries (α := Submodule R M') (· < ·))
     (f : M →ₗ[R] M') : RelSeries (α := Submodule R M) (· ≤ ·) :=
       RelSeries.map rs {toFun := Submodule.comap f, map_rel' := fun a ↦ Submodule.comap_mono (a.le)}
-
-
-
 
 
   theorem Set.preimage_mono_of_range_intersection {A B : Type*} {f : A → B} {S S' : Set B}
@@ -125,7 +96,7 @@ section FL
       exact obv jint
 
 
-  theorem kernel_intersection {A B : Submodule R M} {f :  M →ₗ[R] M'} (hab : A < B)
+  theorem LinearMap.ker_intersection_mono_of_map_eq {A B : Submodule R M} {f :  M →ₗ[R] M'} (hab : A < B)
     (q : Submodule.map f A = Submodule.map f B) : LinearMap.ker f ⊓ A < LinearMap.ker f ⊓ B := by
       rw[lt_iff_le_and_ne]
       constructor
@@ -147,7 +118,7 @@ section FL
 
   -- Since this is almost exactly the same proof this could probably be given a bit of a refactor,
   -- but that's alright
-  theorem kernel_intersection' {A B : Submodule R M} {f :  M →ₗ[R] M'} (hab : A < B)
+  theorem LinearMap.map_mono_of_ker_intersection_eq {A B : Submodule R M} {f :  M →ₗ[R] M'} (hab : A < B)
     (q : LinearMap.ker f ⊓ A = LinearMap.ker f ⊓ B) : Submodule.map f A < Submodule.map f B := by
       rw[lt_iff_le_and_ne]
       constructor
@@ -175,14 +146,13 @@ section FL
   theorem RelSeries.submodule_comap_lt_of_map_eq_exact
     {S : CategoryTheory.ShortComplex (ModuleCat R)} (hS : S.ShortExact)
     (rs : RelSeries (α := Submodule R S.X₂) (· < ·)) (i : Fin rs.length)
-    --(p : (rs.submoduleMap S.g).toFun i = (rs.submoduleMap S.g).toFun (i+1))
     (p : (rs.submoduleMap S.g.hom).toFun i.castSucc = (rs.submoduleMap S.g.hom).toFun i.succ)
     : (rs.submoduleComap S.f.hom).toFun i.castSucc < (rs.submoduleComap S.f.hom).toFun i.succ := by
 
       have kernelInt : LinearMap.ker S.g.hom ⊓ (rs.toFun i) < LinearMap.ker S.g.hom ⊓ (rs.toFun (i+1)) := by
        have p' : Submodule.map S.g.hom (rs.toFun i.castSucc) = Submodule.map S.g.hom (rs.toFun i.succ) :=
         by aesop
-       have ans := kernel_intersection (rs.step i) p'
+       have ans := LinearMap.ker_intersection_mono_of_map_eq (rs.step i) p'
        aesop
 
       have exactness : LinearMap.ker S.g.hom = LinearMap.range S.f.hom := by
@@ -227,26 +197,30 @@ section FL
         (rs.submoduleMap S.g.hom).toFun k = Submodule.map S.g.hom (rs.toFun k) := by aesop
       rw[intLem i.castSucc, intLem i.succ]
 
-      exact kernel_intersection' (rs.step i) imInt
+      exact LinearMap.map_mono_of_ker_intersection_eq (rs.step i) imInt
 
 
 
 
 
   open Classical in
+  /--
+  Given a short exact sequence S and rs : RelSeries (α := Submodule R S.X₂) (· < ·),
+  we have that the length of rs is bounded above by the trimmed length of rs.submoduleMap S.g.hom
+  plus the trimmed length of rs.submoduleComap S.f.hom.
+
+  This is the main ingredient in our proof that the module length is additive.
+  -/
   theorem trimmed_length_additive
     {S : CategoryTheory.ShortComplex (ModuleCat R)} (hS : S.ShortExact)
       (rs : RelSeries (α := Submodule R S.X₂) (· < ·)) :
-      rs.length ≤ RelSeries.trimmed_length (rs.submoduleMap S.g.hom) + RelSeries.trimmed_length (rs.submoduleComap S.f.hom) := by
+      rs.length ≤ RelSeries.trimmedLength (rs.submoduleMap S.g.hom) +
+                  RelSeries.trimmedLength (rs.submoduleComap S.f.hom) := by
 
         induction' o : rs.length with n ih generalizing rs
         · aesop
-        · -- Case match on the last ineqality in the seires on the right. If it's equality, then
-          -- the guy on the left is < and we use our lemmas about trimmed length on eraseLast to
-          -- get the job done. If instead we have < on the right, it's even easier because we get
-          -- our lemma just by looking at the right series.
-          let n' : Fin (rs.length) := {val := n, isLt := by aesop}
-          by_cases q : rs.submoduleMap S.g.hom (n'.castSucc) = rs.submoduleMap S.g.hom n'.succ --(rs.submoduleMap S.g).toFun n = (rs.submoduleMap S.g).toFun (n + 1)
+        · let n' : Fin (rs.length) := {val := n, isLt := by aesop}
+          by_cases q : rs.submoduleMap S.g.hom (n'.castSucc) = rs.submoduleMap S.g.hom n'.succ
           · let n' : Fin (rs.length) := {val := n, isLt := by rw[o] ; exact lt_add_one n}
 
             let leleft := RelSeries.submodule_comap_lt_of_map_eq_exact hS rs n' q
@@ -255,48 +229,34 @@ section FL
 
             let obv : (rs.submoduleMap S.g.hom).length > 0 := by exact Fin.pos n'
 
-            have qcoe' : ∃ i : Fin (rs.length),
+            have qcoe' : ∃ i : Fin (rs.submoduleMap S.g.hom).length,
                 (rs.submoduleMap S.g.hom).toFun i.succ = (rs.submoduleMap S.g.hom).toFun i.castSucc ∧
                 ↑i + 1 = (rs.submoduleMap S.g.hom).length := by
                 use n'
                 exact ⟨id (Eq.symm q), id (Eq.symm o)⟩
 
-            rw[RelSeries.trimmed_length_eraseLast_of_eq obv qcoe']
+            rw[RelSeries.trimmedLength_eraseLast_of_eq qcoe']
 
 
-            let rserasedLen : rs.eraseLast.length = n := by aesop
+            have rserasedLen : rs.eraseLast.length = n := by aesop
 
-            let iherased := ih rs.eraseLast rserasedLen
+            have iherased := ih rs.eraseLast rserasedLen
 
-            have leftlt : ∃ i : Fin (rs.length),
+            have leftlt : ∃ i : Fin (rs.submoduleComap S.f.hom).length,
                 (rs.submoduleComap S.f.hom).toFun i.castSucc < (rs.submoduleComap S.f.hom).toFun i.succ ∧
-                ↑i + 1 = (rs.submoduleMap S.g.hom).length := by
+                ↑i + 1 = (rs.submoduleComap S.f.hom).length := by
                 use n'
                 exact ⟨leleft, id (Eq.symm o)⟩
 
 
 
-
-            have leftlength : (rs.submoduleComap S.f.hom).length = n+1 := by aesop
-
-            have nonempt : (rs.submoduleComap S.f.hom).length > 0 := by aesop
-
-            --#check RelSeries.trimmed_length_eraseLast_le
-            rw[RelSeries.trimmed_length_eraseLast_of_lt nonempt leftlt]
+            rw[RelSeries.trimmedLength_eraseLast_of_lt leftlt]
             exact Nat.add_le_add_right iherased 1
 
 
           · have q' : rs.submoduleMap S.g.hom n'.castSucc < (rs.submoduleMap S.g.hom).toFun n'.succ := by
               let leq := (rs.submoduleMap S.g.hom).step n'
               exact lt_of_le_of_ne leq q
-
-
-            /-
-            have q'' : (rs.submoduleMap S.g).toFun ((rs.submoduleMap S.g).length - 1) <
-                      (rs.submoduleMap S.g).toFun ((rs.submoduleMap S.g).length) := by
-              have leneq : (rs.submoduleMap S.g).length = rs.length := rfl
-              simp_all
-            -/
 
             have q'' :
               ∃ i : Fin (rs.length),
@@ -307,20 +267,16 @@ section FL
 
 
             have nonempt : (rs.submoduleMap S.g.hom).length > 0 := by exact Fin.pos n'
-            rw[RelSeries.trimmed_length_eraseLast_of_lt nonempt q'']
+            rw[RelSeries.trimmedLength_eraseLast_of_lt q'']
 
             let rserasedLen : rs.eraseLast.length = n := by aesop
 
             let iherased := ih rs.eraseLast rserasedLen
 
-            have makeIntoLemma : (rs.submoduleComap S.f.hom).eraseLast.trimmed_length ≤
-                                (rs.submoduleComap S.f.hom).trimmed_length :=
-            RelSeries.trimmed_length_eraseLast_le (rs.submoduleComap S.f.hom) (by aesop)
-
-
-            suffices n + 1 ≤ (rs.submoduleMap S.g.hom).eraseLast.trimmed_length +
-                             1 + (rs.submoduleComap S.f.hom).eraseLast.trimmed_length by
-              exact le_add_of_le_add_left this makeIntoLemma
+            suffices n + 1 ≤ (rs.submoduleMap S.g.hom).eraseLast.trimmedLength +
+                             1 + (rs.submoduleComap S.f.hom).eraseLast.trimmedLength by
+              exact le_add_of_le_add_left this
+                (RelSeries.trimmedLength_eraseLast_le (rs.submoduleComap S.f.hom))
 
             ring_nf
 
@@ -329,25 +285,6 @@ section FL
             exact shouldProve
 
 
-
-
-
-  /-
-  There is a very similar result about ENNReal which would be potentially useful to generalize,
-  I think I could port their proof over without too much difficutly, but finding an appropriate
-  geberalization for them both is proving to be kind of annoying.
-
-  There is of course also the conditional lattice business which has similar lemmas assuming the
-  addition is in a group and that the order has a kind of reverse cancellative property wrt to the
-  addition, but it's unclear how to generalise this to the case we want, especially considering
-  that in our application, we're not actually working with a monoid which embeds into it's
-  "groupification", since a monoid needs to be cancellative for this to be the case which gets
-  messed around by adding infinities
-  -/
-
-  -- Sps ⨆ i, f i = ⊥, then ⊥ ≥ f i for every i ∈ ι.
-  -- Since ι nonempty, we must then have that f i = ⊥ for every i ∈ ι, so a + f i = a + ⊥ = ⊥, and so
-  -- the supremum is ⊥ there too. So it should certainly be true.
 
   lemma withbot_isup_eq_bot_iff {ι : Sort*} [Nonempty ι] (f : ι → WithBot ℕ∞) :
      ⨆ i, f i = ⊥ ↔ ∀ i, f i = ⊥ := by
@@ -360,10 +297,8 @@ section FL
        simp[h]
 
   variable (a b : ℕ∞)
-  #check a - b
-  #eval (⊤ : ℕ∞) - ⊤
-  --open ENat
-  lemma add_iSup {ι : Sort*} [Nonempty ι] {a : WithBot ℕ∞} (f : ι → WithBot ℕ∞) : a + ⨆ i, f i = ⨆ i,
+
+  lemma WithBot.add_iSup {ι : Sort*} [Nonempty ι] {a : WithBot ℕ∞} (f : ι → WithBot ℕ∞) : a + ⨆ i, f i = ⨆ i,
      a + f i := by
     refine le_antisymm ?_ <| iSup_le fun i ↦ add_le_add_left (le_iSup ..) _
 
@@ -400,7 +335,7 @@ section FL
           have : a + ⨆ i, g i ≤ c := by
             intro k hk
             cases b
-            · simp
+            · simp only [ENat.some_eq_coe]
               subst hk
               simp_all only [ENat.some_eq_coe]
               suffices False by exact False.elim this
@@ -445,48 +380,22 @@ section FL
             norm_cast
             exact le_self_add
           specialize hb j
-          --simp[hfj] at hb ⊢
-          --rw[WithBot.unbot'_coe]
           suffices g j = f j by rwa[this]
           dsimp only [g]
           revert hfj
           generalize f j = x
           cases x
-          · simp
-          · simp
+          all_goals simp
 
+  lemma WithBot.iSup_add {ι : Sort*} [Nonempty ι] {a : WithBot ℕ∞} (f : ι → WithBot ℕ∞) : (⨆ i, f i) + a = ⨆ i,
+     f i + a := by simp [add_comm, WithBot.add_iSup]
 
-    /-
-    obtain m | ha := eq_or_ne a ⊥
-    · simp[m]
-    obtain m | ha' := eq_or_ne a ⊤
-    · simp[m]
-
-      --rw[←WithBot.coe_le_coe]
-
-      simp only [←WithBot.coe_top, ←WithBot.coe_add]
-
-      --rw[WithBot.coe_le_coe]
-
-
-
-
-      sorry
-    · --refine add_le_of_le_tsub_left_of_le (le_iSup_of_le (Classical.arbitrary _) le_self_add) ?_
-
-      sorry-/
-    --refine add_le_of_le_tsub_left_of_le (le_iSup_of_le (Classical.arbitrary _) le_self_add) ?_
-    --exact iSup_le fun i ↦ ENNReal.le_sub_of_add_le_left ha <| le_iSup (a + f ·) i
-
-  lemma iSup_add {ι : Sort*} [Nonempty ι] {a : WithBot ℕ∞} (f : ι → WithBot ℕ∞) : (⨆ i, f i) + a = ⨆ i,
-     f i + a := by simp [add_comm, add_iSup]
-
-  theorem iSup_le_add {ι ι': Sort*} [Nonempty ι] [Nonempty ι']
+  theorem WithBot.iSup_le_add {ι ι': Sort*} [Nonempty ι] [Nonempty ι']
    {f : ι → WithBot ℕ∞} {g : ι' → WithBot ℕ∞} {a : WithBot ℕ∞} :
   iSup f + iSup g ≤ a ↔ ∀ (i: ι) (j : ι'), f i + g j ≤ a := by
-    simp_rw [iSup_add, add_iSup]
+    simp_rw [WithBot.iSup_add, WithBot.add_iSup]
     exact iSup₂_le_iff
-    --simp[WithBot.instSupSet, ConditionallyCompleteLattice.toSupSet]
+
 
 
   /-
@@ -494,7 +403,7 @@ section FL
   of concatenation. In principal I think smash should be defined in terms of concat but it might
   be annoying to do this replacement in practice.
   -/
-  def concat {α : Type*} {r : Rel α α} (p q : RelSeries r) (connect : r p.last q.head) : RelSeries r where
+  def RelSeries.concat {α : Type*} {r : Rel α α} (p q : RelSeries r) (connect : r p.last q.head) : RelSeries r where
   length := p.length + q.length + 1
   toFun i :=
     if H : i.1 < p.length + 1
@@ -513,14 +422,14 @@ section FL
       split_ifs with h₁
       · have h₃ : p.length = i.1 := by omega
         convert connect
-        · simp_all
+        · simp_all only [lt_self_iff_false, not_false_eq_true]
           have check : p.last = p.toFun (p.length) := by simp[RelSeries.last]
           rw[check]
           apply congr_arg
           apply Fin.eq_of_val_eq
           simpa using h₃.symm
-        · simp_all
-          exact rfl
+        · simp_all only [lt_add_iff_pos_right, zero_lt_one, tsub_self, Fin.zero_eta]
+          rfl
 
       · convert q.step ⟨i.1 - (p.length + 1), _⟩ using 1
         · congr
@@ -531,6 +440,9 @@ section FL
 
 
   open Classical in
+  /--
+  The module length is additive in short exact sequences.
+  -/
     theorem Module.length_additive
     {S : CategoryTheory.ShortComplex (ModuleCat R)} (hS : S.ShortExact) :
       Module.length R S.X₂ = Module.length R S.X₁ + Module.length R S.X₃ := by
@@ -544,15 +456,15 @@ section FL
       let trimmedProof := trimmed_length_additive hS rs
 
 
-      let trimleft := Module.length_ge_trimmed_length (RelSeries.submoduleComap rs S.f.hom)
-      let trimright := Module.length_ge_trimmed_length (RelSeries.submoduleMap rs S.g.hom)
+      let trimleft := Module.length_ge_trimmedLength (RelSeries.submoduleComap rs S.f.hom)
+      let trimright := Module.length_ge_trimmedLength (RelSeries.submoduleMap rs S.g.hom)
 
-      have inbet : (RelSeries.submoduleComap rs S.f.hom).trimmed_length +
-        (RelSeries.submoduleMap rs S.g.hom).trimmed_length
+      have inbet : (RelSeries.submoduleComap rs S.f.hom).trimmedLength +
+        (RelSeries.submoduleMap rs S.g.hom).trimmedLength
         ≤ Module.length R S.X₁ + Module.length R S.X₃ := by exact add_le_add trimleft trimright
 
 
-      apply le_trans (b := ↑((RelSeries.submoduleComap rs S.f.hom).trimmed_length + (RelSeries.submoduleMap rs S.g.hom).trimmed_length))
+      apply le_trans (b := ↑((RelSeries.submoduleComap rs S.f.hom).trimmedLength + (RelSeries.submoduleMap rs S.g.hom).trimmedLength))
 
       apply Nat.mono_cast
       rw[Nat.add_comm] at trimmedProof
@@ -561,30 +473,30 @@ section FL
 
 
 
-    · rw[iSup_le_add]
-      --#check ciSup_add_ciSup_le
-      --apply (ciSup_add_ciSup_le )
+    · rw[WithBot.iSup_le_add]
       intro rstemp rstemp'
-      obtain ⟨rs, hrs⟩ := RelSeries.chain_le_bot_top rstemp
-      obtain ⟨rs', hrs'⟩ := RelSeries.chain_le_bot_top rstemp'
+      obtain ⟨rs, hrs⟩ := RelSeries.exists_ltSeries_ge_head_bot_last_top rstemp
+      obtain ⟨rs', hrs'⟩ := RelSeries.exists_ltSeries_ge_head_bot_last_top rstemp'
 
 
       let gInv : RelSeries (fun (a : Submodule R S.X₂) (b : Submodule R S.X₂) => a < b) :=
-        RelSeries.submoduleComap_surjective hS.moduleCat_surjective_g rs'
+        LTSeries.map rs' (Submodule.comap S.g.hom)
+        (Submodule.comap_strictMono_of_surjective hS.moduleCat_surjective_g)
 
 
       let fIm : RelSeries (fun (a : Submodule R S.X₂) (b : Submodule R S.X₂) => a < b) :=
-        RelSeries.submoduleMap_injective hS.moduleCat_injective_f rs
+        LTSeries.map rs (Submodule.map S.f.hom)
+        (Submodule.map_strictMono_of_injective hS.moduleCat_injective_f)
 
 
       have connect : fIm.last = gInv.head := by
         have gInvheadker : gInv.head = LinearMap.ker S.g.hom := by
-          simp[gInv, RelSeries.submoduleComap_surjective, RelSeries.head]
+          simp only [RelSeries.head, LTSeries.map_toFun, gInv]
           let obv : rs'.toFun 0 = ⊥ := by aesop
           rw[obv]
           exact rfl
         have fImLastRange : fIm.last = LinearMap.range S.f.hom := by
-          simp[fIm, RelSeries.submoduleMap_injective, RelSeries.last]
+          simp only [RelSeries.last, LTSeries.map_length, LTSeries.map_toFun, fIm]
           let obv : (rs.toFun (Fin.last rs.length)) = ⊤ := by aesop
           rw[obv]
           exact Submodule.map_top S.f.hom
