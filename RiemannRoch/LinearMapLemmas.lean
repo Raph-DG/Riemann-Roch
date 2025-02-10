@@ -37,12 +37,13 @@ open Ring
 
 
 
+
   theorem LinearMap.ker_intersection_mono_of_map_eq {A B : Submodule R M} {f :  M →ₗ[R] M'} (hab : A < B)
     (q : Submodule.map f A = Submodule.map f B) : LinearMap.ker f ⊓ A < LinearMap.ker f ⊓ B := by
       rw[lt_iff_le_and_ne]
       constructor
       · exact inf_le_inf le_rfl hab.le
-      · intro H
+      · intro h
         apply hab.ne
         apply le_antisymm hab.le
         intro x hx
@@ -52,11 +53,12 @@ open Ring
         obtain ⟨z, hz, hzy⟩ := hy
         suffices x - z ∈ LinearMap.ker f ⊓ A by
           simpa using add_mem this.2 hz
-        rw[H]
+        rw[h]
         constructor
         · simp[hzy]
         · apply sub_mem hx (hab.le hz)
 
+  #find_home! LinearMap.ker_intersection_mono_of_map_eq
   -- Since this is almost exactly the same proof this could probably be given a bit of a refactor,
   -- but that's alright
   theorem LinearMap.map_mono_of_ker_intersection_eq {A B : Submodule R M} {f :  M →ₗ[R] M'} (hab : A < B)
@@ -64,13 +66,13 @@ open Ring
       rw[lt_iff_le_and_ne]
       constructor
       · exact Set.image_mono hab.le
-      · intro H
+      · intro h
         apply hab.ne
         apply le_antisymm hab.le
         intro x hx
         let y := f x
         have hy : y ∈ Submodule.map f B := by use x, hx
-        rw[←H] at hy
+        rw[←h] at hy
         obtain ⟨z, hz, hzy⟩ := hy
         suffices x - z ∈ LinearMap.ker f ⊓ A by
           simpa using add_mem this.2 hz

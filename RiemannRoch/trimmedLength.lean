@@ -141,6 +141,9 @@ theorem RelSeries.moduleLength_ge_trimmedLength
 
 
 
+lemma pairwiseToFull {α ι : Type*} [LinearOrder ι](tf : ι → α) : ∀ (i : ι),
+  tf i = tf i := sorry
+
 /-
 This should almost certainly be rs i.castSucc = rs.succ, but it's more annoying to change
 than I thought it would be and as it turns out this lemma is never used anywhere (it's good
@@ -160,18 +163,14 @@ theorem RelSeries.trimmedLength_exists_eq
     omega
   intro i j hij
   obtain hij'|rfl|hij' := lt_trichotomy i j
-  · have h₁ : i + 1 ≤ j := by exact Fin.add_one_le_of_lt hij'
+  · have h₁ : i + 1 ≤ j := Fin.add_one_le_of_lt hij'
     contrapose! hij
     apply ne_of_lt
     apply lt_of_lt_of_le _ (RelSeries.map_le rs h₁)
     apply lt_of_le_of_ne
     · apply RelSeries.map_le
       by_contra! h
-      have h' : i+1 ≤ i := h.le
-
-      have h'' : i = Fin.last rs.length := (Fin.add_one_le_iff.mp h')
-      exact Fin.ne_last_of_lt hij' h''
-
+      exact Fin.ne_last_of_lt hij' (Fin.add_one_le_iff.mp h.le)
     · apply hrs
   · rfl
   · have h₁ : j + 1 ≤ i := by exact Fin.add_one_le_of_lt hij'
@@ -181,9 +180,7 @@ theorem RelSeries.trimmedLength_exists_eq
     apply lt_of_le_of_ne
     · apply RelSeries.map_le
       by_contra! h
-      have h' : j+1 ≤ j := h.le
-      have h'' : j = Fin.last rs.length := (Fin.add_one_le_iff.mp h')
-      exact Fin.ne_last_of_lt hij' h''
+      exact Fin.ne_last_of_lt hij' (Fin.add_one_le_iff.mp h.le)
     · apply hrs
 
 
@@ -196,7 +193,7 @@ theorem RelSeries.trimmedLength_exists_le
 (hrs : rs.trimmedLength > 0) : ∃ (i : Fin rs.length), rs i.castSucc < rs i.succ := by
   contrapose! hrs
   suffices ∀ i, rs i = rs 0 by
-    simp[RelSeries.trimmedLength]
+    unfold RelSeries.trimmedLength
     suffices Finset.image rs.toFun Finset.univ = {rs.toFun 0} by simp[this]
     suffices rs.toFun = fun i ↦ rs.toFun 0 by
       rw[this, Finset.image_const]
@@ -208,13 +205,12 @@ theorem RelSeries.trimmedLength_exists_le
   have hrs' : ∀ (i : Fin rs.length), rs.toFun i.castSucc = rs.toFun i.succ := by
    intro j
    apply eq_of_le_of_not_lt
-   · by_cases h : j = rs.length
-     · exact rs.step j
-     · have : j.val < rs.length := by exact j.isLt
-       let j' : Fin rs.length := ⟨j, this⟩
-       have pf := rs.step j'
-       simp_all
+   · exact rs.step j
    · exact hrs j
+  /-
+  This should be its own lemma, but to me its unclear what the lemma should be.
+  Potentially just what it says there
+  -/
   induction' o : i.val with n ih generalizing i
   · congr
     exact Eq.symm (Fin.eq_of_val_eq (id (Eq.symm o)))
@@ -231,10 +227,44 @@ theorem RelSeries.trimmedLength_exists_le
     specialize hrs' ipred
     simp only at hrs'
     convert hrs'.symm
-    exact?
+    subst o'
+    simp_all only [Fin.succ_pred, ipred]
     · apply Fin.eq_of_val_eq
       simp only [Fin.coe_castSucc, ipred, Fin.coe_pred]
       aesop
+
+
+lemma Finset.univ_eq (n : ℕ) :
+  (Finset.univ : Finset (Fin (n + 1))) = {i : Fin (n + 1) | ↑i < n} ∪ {Fin.last n} := by
+  ext a
+  simp
+  by_cases ha : a = Fin.last n
+  · exact Or.inl ha
+  · exact Or.inr <| Fin.val_lt_last ha
+
+lemma Finset.baz (n : ℕ) :(Finset.univ : Finset (Fin (n + 1))) =
+    Finset.image (Fin.castLE (n := n - 1 + 1)
+    (by omega)) Finset.univ ∪ {Fin.last _} := by
+  suffices m : (Finset.univ : Finset (Fin (n + 1))) =
+               {i : Fin (n + 1) | ↑i < n} ∪ {Fin.last n} by
+    simp_all only [Finset.coe_univ, Set.union_singleton]
+    ext a
+    simp[Finset.eq_univ_iff_forall]
+    by_cases ha : a = Fin.last n
+    · exact Or.inr ha
+    · apply Or.inl
+      have ha2 : a.val < n - 1 + 1 := by
+        have ha3 : a.val < n + 1 := a.2
+        have : a.val ≠ n := by
+          rw[← Fin.val_eq_val] at ha
+          exact ha
+        omega
+
+      let a' : Fin (n - 1 + 1) := ⟨a, ha2⟩
+      use a'
+      apply Fin.eq_of_val_eq
+      simp
+  exact Finset.univ_eq n
 
 
 
@@ -249,50 +279,12 @@ theorem RelSeries.trimmedLength_eraseLast_of_eq
   : rs.trimmedLength = rs.eraseLast.trimmedLength := by
     simp only [trimmedLength, eraseLast_length]
     congr 2
-    have foo : (Finset.univ : Finset (Fin (rs.length + 1))) =
-               Finset.image (Fin.castLE (n := rs.length - 1 + 1)
-               (by omega)) Finset.univ ∪ {Fin.last _} := by
-
-      have finrange := Fin.range_castLE (n := rs.length - 1 + 1) (k := rs.length + 1) (by omega)
-      suffices m : (Finset.univ : Finset (Fin (rs.length + 1))) =
-               {i : Fin (rs.length + 1) | ↑i < rs.length} ∪ {Fin.last rs.length} by
-        simp_all only [Fin.range_castLE, Finset.coe_univ, Set.union_singleton]
-        ext a
-        simp only [Finset.mem_univ, Finset.mem_union, Finset.mem_image, true_and,
-          Finset.mem_singleton, true_iff]
-        by_cases ha : a = Fin.last rs.length
-        · exact Or.inr ha
-        · apply Or.inl
-          have ha2 : a.val < rs.length - 1 + 1 := by
-            have ha3 : a.val < rs.length + 1 := a.2
-            have : a.val ≠ rs.length := by
-              rw[← Fin.val_eq_val] at ha
-              exact ha
-            omega
-
-          let a' : Fin (rs.length - 1 + 1) := ⟨a, ha2⟩
-          use a'
-          apply Fin.eq_of_val_eq
-          simp
-      simp only [Finset.coe_univ, Set.union_singleton]
-      unfold Set.univ
-      ext a
-      constructor
-      · intro
-        refine Set.mem_insert_iff.mpr ?h.mp.a
-        by_cases h : a = Fin.last rs.length
-        · exact Or.inl h
-        · simp_all only [Fin.range_castLE, Finset.coe_image, Finset.coe_univ, Set.image_univ,
-            Set.setOf_true, Set.mem_univ, Set.mem_setOf_eq, false_or]
-          exact Fin.val_lt_last h
-      · aesop
-
-    rw[foo, Finset.image_union, Finset.image_singleton, Finset.image_image, Finset.union_eq_left.mpr]
+    rw[Finset.baz, Finset.image_union, Finset.image_singleton,
+     Finset.image_image, Finset.union_eq_left.mpr]
     · rfl
-    · simp
+    · simp only [Finset.singleton_subset_iff, Finset.mem_image, Finset.mem_univ,
+      Function.comp_apply, true_and]
       obtain ⟨i, hi⟩ := lasteq
-      let i' : Fin (rs.length - 1 + 1) := ⟨i, by omega⟩
-
       use i
       have : (Fin.castLE (n := rs.length - 1 + 1) (by omega) ↑↑i) = i.castSucc := by
         apply Fin.eq_of_val_eq
@@ -301,7 +293,6 @@ theorem RelSeries.trimmedLength_eraseLast_of_eq
         omega
       rw[this]
       have : Fin.last rs.length = i.succ := by aesop
-
       rw[this]
       exact hi.1
 
@@ -318,43 +309,8 @@ theorem RelSeries.trimmedLength_eraseLast_of_lt
     : rs.trimmedLength = rs.eraseLast.trimmedLength + 1 := by
       simp only [trimmedLength, eraseLast_length, Finset.one_le_card, Finset.image_nonempty,
         Finset.univ_nonempty, Nat.sub_add_cancel]
-      have foo : (Finset.univ : Finset (Fin (rs.length + 1))) =
-               Finset.image (Fin.castLE (n := rs.length - 1 + 1) (by omega))
-               Finset.univ ∪ {Fin.last _} := by
-        suffices m : (Finset.univ : Finset (Fin (rs.length + 1))) =
-               {i : Fin (rs.length + 1) | ↑i < rs.length} ∪ {Fin.last rs.length} by
-          simp_all only [Finset.coe_univ, Set.union_singleton]
-          ext a
-          simp[Finset.eq_univ_iff_forall]
-          by_cases ha : a = Fin.last rs.length
-          · exact Or.inr ha
-          · apply Or.inl
-            have ha2 : a.val < rs.length - 1 + 1 := by
-              have ha3 : a.val < rs.length + 1 := a.2
-              have : a.val ≠ rs.length := by
-                rw[← Fin.val_eq_val] at ha
-                exact ha
-              omega
-
-            let a' : Fin (rs.length - 1 + 1) := ⟨a, ha2⟩
-            use a'
-            apply Fin.eq_of_val_eq
-            simp
-        simp only [Finset.coe_univ, Set.union_singleton]
-        unfold Set.univ
-        ext a
-        constructor
-        · intro
-          refine Set.mem_insert_iff.mpr ?h.mp.a
-          by_cases h : a = Fin.last rs.length
-          · exact Or.inl h
-          · simp_all only [Fin.range_castLE, Finset.coe_image, Finset.coe_univ, Set.image_univ,
-            Set.setOf_true, Set.mem_univ, Set.mem_setOf_eq, false_or]
-            exact Fin.val_lt_last h
-        · aesop
-      rw[foo, Finset.image_union, Finset.image_singleton, Finset.image_image]
-      clear foo
-      rw[Finset.card_union_of_disjoint, Finset.card_singleton]
+      rw[Finset.baz, Finset.image_union, Finset.image_singleton,
+        Finset.image_image, Finset.card_union_of_disjoint, Finset.card_singleton]
       · rfl
       · simp
         intro i

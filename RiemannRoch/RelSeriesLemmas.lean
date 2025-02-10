@@ -68,7 +68,6 @@ open Ring
         omega
 
 
-  -- This should probably be for any relseries with a relation r satisfying r implies ≤
   def RelSeries.submoduleMap (rs : RelSeries (α := Submodule R M) (· < ·))
     (f : M →ₗ[R] M') : RelSeries (α := Submodule R M') (· ≤ ·) :=
       RelSeries.map rs {toFun := Submodule.map f, map_rel' := fun a ↦ Submodule.map_mono (a.le)}
@@ -84,7 +83,8 @@ open Ring
     (p : (rs.submoduleMap S.g.hom).toFun i.castSucc = (rs.submoduleMap S.g.hom).toFun i.succ)
     : (rs.submoduleComap S.f.hom).toFun i.castSucc < (rs.submoduleComap S.f.hom).toFun i.succ := by
 
-      have kernelInt : LinearMap.ker S.g.hom ⊓ (rs.toFun i) < LinearMap.ker S.g.hom ⊓ (rs.toFun (i+1)) := by
+      have kernelInt : LinearMap.ker S.g.hom ⊓ (rs.toFun i.castSucc) < LinearMap.ker S.g.hom ⊓ (rs.toFun i.succ) := by
+
        have p' : Submodule.map S.g.hom (rs.toFun i.castSucc) = Submodule.map S.g.hom (rs.toFun i.succ) :=
         by aesop
        have ans := LinearMap.ker_intersection_mono_of_map_eq (rs.step i) p'
