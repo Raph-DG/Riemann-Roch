@@ -1,3 +1,8 @@
+/-
+Copyright (c) 2025 Raphael Douglas Giles. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Raphael Douglas Giles
+-/
 import Mathlib.Order.KrullDimension
 import Mathlib.Order.JordanHolder
 import Mathlib.Topology.KrullDimension
@@ -15,6 +20,24 @@ import Mathlib.AlgebraicGeometry.Properties
 import Mathlib.RingTheory.FiniteLength
 import Mathlib.Order.ConditionallyCompleteLattice.Group
 import Mathlib.Order.Defs.Unbundled
+
+/-!
+# Trimmed Length
+
+Given a relseries rs : RelSeries (· ≤ ·), we define the trimmed length of rs to be the cardinality
+of the underlying function rs.toFun of rs minus 1. This models the number of `<` relations occuring
+in rs.
+
+## Notation
+
+1. rs.trimmedLength denoted the trimmed length of rs as described above
+
+
+## Theorems
+
+The main theorem is given a short exact sequece
+
+-/
 
 open AlgebraicGeometry
 open CategoryTheory
@@ -109,7 +132,7 @@ open Classical in
 The length of a module is greater than or equal to the trimmedLength of any
 rs : RelSeries (α := Submodule R M) (· ≤ ·).
 -/
-theorem Module.length_ge_trimmedLength
+theorem RelSeries.moduleLength_ge_trimmedLength
 (rs : RelSeries (α := Submodule R M) (· ≤ ·))
   : RelSeries.trimmedLength rs ≤ Module.length R M := by
   rw[← rs.length_trim]
@@ -206,7 +229,7 @@ theorem RelSeries.trimmedLength_exists_le
     rw[← ih]
     let ipred := Fin.pred i (by aesop)
     specialize hrs' ipred
-    simp at hrs'
+    simp only at hrs'
     convert hrs'.symm
     exact?
     · apply Fin.eq_of_val_eq
@@ -222,9 +245,9 @@ If the last two elements of rs are equal, then rs.trimmedLength = rs.eraseLast.t
 that if rs only has one element, the "last two elements" are both just the unique element of rs.
 -/
 theorem RelSeries.trimmedLength_eraseLast_of_eq
-  (lasteq : ∃ i : Fin (rs.length), rs.toFun (i.succ) = rs.toFun i.castSucc ∧ (i + 1:ℕ) = rs.length)
+  (lasteq : ∃ i : Fin (rs.length), rs.toFun i.castSucc = rs.toFun i.succ ∧ (i + 1:ℕ) = rs.length)
   : rs.trimmedLength = rs.eraseLast.trimmedLength := by
-    simp[RelSeries.trimmedLength]
+    simp only [trimmedLength, eraseLast_length]
     congr 2
     have foo : (Finset.univ : Finset (Fin (rs.length + 1))) =
                Finset.image (Fin.castLE (n := rs.length - 1 + 1)
@@ -233,9 +256,10 @@ theorem RelSeries.trimmedLength_eraseLast_of_eq
       have finrange := Fin.range_castLE (n := rs.length - 1 + 1) (k := rs.length + 1) (by omega)
       suffices m : (Finset.univ : Finset (Fin (rs.length + 1))) =
                {i : Fin (rs.length + 1) | ↑i < rs.length} ∪ {Fin.last rs.length} by
-        simp_all
+        simp_all only [Fin.range_castLE, Finset.coe_univ, Set.union_singleton]
         ext a
-        simp[Finset.eq_univ_iff_forall]
+        simp only [Finset.mem_univ, Finset.mem_union, Finset.mem_image, true_and,
+          Finset.mem_singleton, true_iff]
         by_cases ha : a = Fin.last rs.length
         · exact Or.inr ha
         · apply Or.inl
@@ -279,7 +303,7 @@ theorem RelSeries.trimmedLength_eraseLast_of_eq
       have : Fin.last rs.length = i.succ := by aesop
 
       rw[this]
-      exact hi.1.symm
+      exact hi.1
 
 omit [DecidableRel (α := α) (· ≤ ·)] in
 variable {rs} in
@@ -365,9 +389,8 @@ The trimmed length of rs.eraseLast is less than or equal to the trimmed length o
 -/
 theorem RelSeries.trimmedLength_eraseLast_le :
   rs.eraseLast.trimmedLength ≤ rs.trimmedLength := by
-    by_cases h : ∃ i : Fin rs.length, rs.toFun i.succ = rs.toFun i.castSucc ∧ ↑i + 1 = rs.length
-    · have := rs.trimmedLength_eraseLast_of_eq h
-      exact Nat.le_of_eq (id (Eq.symm this))
+    by_cases h : ∃ i : Fin rs.length, rs.toFun i.castSucc = rs.toFun i.succ ∧ ↑i + 1 = rs.length
+    · exact Nat.le_of_eq (id (Eq.symm (rs.trimmedLength_eraseLast_of_eq h)))
     · by_cases nontriv : rs.length = 0
       · simp_all only [AddLeftCancelMonoid.add_eq_zero, one_ne_zero, and_false, exists_false,
         not_false_eq_true]

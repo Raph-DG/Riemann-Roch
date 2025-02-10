@@ -16,6 +16,7 @@ import Mathlib.RingTheory.FiniteLength
 import Mathlib.Data.ENat.Lattice
 import Mathlib.Order.ConditionallyCompleteLattice.Group
 import RiemannRoch.trimmedLength
+import Batteries.Tactic.ShowUnused
 
 
 
@@ -77,23 +78,27 @@ section FL
     (f : M →ₗ[R] M') : RelSeries (α := Submodule R M) (· ≤ ·) :=
       RelSeries.map rs {toFun := Submodule.comap f, map_rel' := fun a ↦ Submodule.comap_mono (a.le)}
 
-
-  theorem Set.preimage_mono_of_range_intersection {A B : Type*} {f : A → B} {S S' : Set B}
-    (ltint : Set.range f ⊓ S < Set.range f ⊓ S') (lt : S ≤ S') : f ⁻¹' S < f ⁻¹' S' := by
-      simp_all
-      rw[Set.ssubset_def]
-      rw[Set.ssubset_def] at ltint
-
+  lemma _root_.Set.ssubset_iff_exists.{u} {α : Type u} {s t : Set α} :
+    s ⊂ t ↔ s ⊆ t ∧ ∃ x ∈ t, x ∉ s := by
       constructor
-      apply Set.monotone_preimage
-      exact lt
-      intro opp
-      let k : f ⁻¹' S ⊆ f ⁻¹' S' := by
-        apply Set.monotone_preimage
-        exact lt
-      let jint : Set.range f ⊓ S = Set.range f ⊓ S' := by aesop
-      let obv : ¬ (Set.range f ∩ S = Set.range f ∩ S') := by aesop
-      exact obv jint
+      · intro h
+        refine ⟨h.subset, ?_⟩
+        rwa[←Set.ssubset_iff_of_subset h.subset]
+      · rintro ⟨h1, h2⟩
+        rwa[Set.ssubset_iff_of_subset h1]
+
+  theorem Set.preimage_mono_of_range_intersection {A B : Type*} {f : A → B} {S S' : Set B} :
+    Set.range f ∩ S ⊂ Set.range f ∩ S' ↔ f ⁻¹' S ⊂ f ⁻¹' S' := by
+      rw[Set.ssubset_iff_exists, Set.ssubset_iff_exists]
+      apply and_congr
+      · constructor
+        · rintro r x hx
+          simp_all only [subset_inter_iff, inter_subset_left, true_and, mem_preimage]
+          aesop
+        · rintro r x hx
+          simp_all only [mem_inter_iff, mem_range, exists_apply_eq_apply, and_self]
+          aesop
+      · aesop
 
 
   theorem LinearMap.ker_intersection_mono_of_map_eq {A B : Submodule R M} {f :  M →ₗ[R] M'} (hab : A < B)
@@ -138,10 +143,6 @@ section FL
         · simp[hzy]
         · apply sub_mem hx (hab.le hz)
 
- theorem image_intersection {A : Submodule R M'} {f :  M →ₗ[R] M'} :
-   Submodule.map f (Submodule.comap f A) = (LinearMap.range f) ⊓ A := by
-    aesop
-
 
   theorem RelSeries.submodule_comap_lt_of_map_eq_exact
     {S : CategoryTheory.ShortComplex (ModuleCat R)} (hS : S.ShortExact)
@@ -168,7 +169,7 @@ section FL
          by aesop
       rw[intLem i.castSucc, intLem i.succ]
 
-      have lem := Set.preimage_mono_of_range_intersection kernelInt (le_of_lt (rs.step i))
+      have lem := Set.preimage_mono_of_range_intersection.mp kernelInt
       simp
       have comap_range : Submodule.comap S.f.hom (LinearMap.range S.f.hom) = ⊤ := by aesop
       rw[comap_range]
@@ -185,7 +186,7 @@ section FL
         CategoryTheory.ShortComplex.Exact.moduleCat_range_eq_ker hS.exact
 
       let imInt : LinearMap.range S.f.hom ⊓ (rs.toFun i.castSucc) = LinearMap.range S.f.hom ⊓ (rs.toFun i.succ) := by
-        rw[←image_intersection, ←image_intersection]
+        rw[←Submodule.map_comap_eq, ←Submodule.map_comap_eq]
         exact congrArg (Submodule.map S.f.hom) p
 
 
@@ -211,7 +212,7 @@ section FL
 
   This is the main ingredient in our proof that the module length is additive.
   -/
-  theorem trimmed_length_additive
+  theorem RelSeries.trimmedLength_additive
     {S : CategoryTheory.ShortComplex (ModuleCat R)} (hS : S.ShortExact)
       (rs : RelSeries (α := Submodule R S.X₂) (· < ·)) :
       rs.length ≤ RelSeries.trimmedLength (rs.submoduleMap S.g.hom) +
@@ -230,10 +231,10 @@ section FL
             let obv : (rs.submoduleMap S.g.hom).length > 0 := by exact Fin.pos n'
 
             have qcoe' : ∃ i : Fin (rs.submoduleMap S.g.hom).length,
-                (rs.submoduleMap S.g.hom).toFun i.succ = (rs.submoduleMap S.g.hom).toFun i.castSucc ∧
+                (rs.submoduleMap S.g.hom).toFun i.castSucc = (rs.submoduleMap S.g.hom).toFun i.succ ∧
                 ↑i + 1 = (rs.submoduleMap S.g.hom).length := by
                 use n'
-                exact ⟨id (Eq.symm q), id (Eq.symm o)⟩
+                exact ⟨id q, id (Eq.symm o)⟩
 
             rw[RelSeries.trimmedLength_eraseLast_of_eq qcoe']
 
@@ -283,18 +284,6 @@ section FL
             let shouldProve := Nat.add_le_add_left iherased 1
             ring_nf at shouldProve
             exact shouldProve
-
-
-
-  lemma withbot_isup_eq_bot_iff {ι : Sort*} [Nonempty ι] (f : ι → WithBot ℕ∞) :
-     ⨆ i, f i = ⊥ ↔ ∀ i, f i = ⊥ := by
-     constructor
-     · intro h i
-       rw[eq_bot_iff]
-       rw[← h]
-       exact le_iSup f i
-     · intro h
-       simp[h]
 
   variable (a b : ℕ∞)
 
@@ -395,7 +384,7 @@ section FL
   iSup f + iSup g ≤ a ↔ ∀ (i: ι) (j : ι'), f i + g j ≤ a := by
     simp_rw [WithBot.iSup_add, WithBot.add_iSup]
     exact iSup₂_le_iff
-
+  #find_home! WithBot.iSup_le_add
 
 
   /-
@@ -453,11 +442,11 @@ section FL
     constructor
     · intro rs
 
-      let trimmedProof := trimmed_length_additive hS rs
+      let trimmedProof := RelSeries.trimmedLength_additive hS rs
 
 
-      let trimleft := Module.length_ge_trimmedLength (RelSeries.submoduleComap rs S.f.hom)
-      let trimright := Module.length_ge_trimmedLength (RelSeries.submoduleMap rs S.g.hom)
+      let trimleft := RelSeries.moduleLength_ge_trimmedLength (RelSeries.submoduleComap rs S.f.hom)
+      let trimright := RelSeries.moduleLength_ge_trimmedLength (RelSeries.submoduleMap rs S.g.hom)
 
       have inbet : (RelSeries.submoduleComap rs S.f.hom).trimmedLength +
         (RelSeries.submoduleMap rs S.g.hom).trimmedLength
@@ -518,4 +507,5 @@ section FL
           simp[hrs'.1]
       exact le_trans step1 this
 
+#show_unused Module.length_additive
 end FL
