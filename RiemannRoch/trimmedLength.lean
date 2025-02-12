@@ -3,6 +3,7 @@ Copyright (c) 2025 Raphael Douglas Giles. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Raphael Douglas Giles
 -/
+/-
 import Mathlib.Order.KrullDimension
 import Mathlib.Order.JordanHolder
 import Mathlib.Topology.KrullDimension
@@ -20,6 +21,8 @@ import Mathlib.AlgebraicGeometry.Properties
 import Mathlib.RingTheory.FiniteLength
 import Mathlib.Order.ConditionallyCompleteLattice.Group
 import Mathlib.Order.Defs.Unbundled
+-/
+import Mathlib
 
 /-!
 # Trimmed Length
@@ -93,6 +96,7 @@ theorem RelSeries.map_le {r : Rel α α} [IsTrans α r] [IsRefl α r] (rs : RelS
       rw[h]
       apply refl (r := r)
 
+
 instance (rs : RelSeries (α := α) (· ≤ ·)) :
   LinearOrder { x // x ∈ Finset.image rs.toFun Finset.univ } where
     __ := Subtype.partialOrder _
@@ -139,10 +143,74 @@ theorem RelSeries.moduleLength_ge_trimmedLength
   rw[Module.length, krullDim]
   exact le_iSup_iff.mpr fun b a ↦ a rs.trim
 
+/-
+We want to use this for both eq and neq, so we should generalise to a situation where we just have
+a general transitive relation. The thing is, as stated this won't work since we're using the fact
+that = is an equivalence relation, because our rhs can flip the direction of the = and allows j to be
+equal to i.
+-/
+omit [DecidableRel (α := α) (· ≤ ·)] in
+lemma pairwiseToFull {n : ℕ} (tf : Fin (n+1) → α) :
+  (∀ (i : Fin n), tf i.castSucc = tf i.succ) ↔ ∀ (i j : Fin (n+1)), tf i = tf j := by
+    constructor
+    · intro h j k
+      induction' j using Fin.induction with m ih
+      · induction' k using Fin.induction with m ih
+        · rfl
+        · specialize h m
+          rwa[← h]
+      · specialize h m
+        rwa[←h]
+    · intro h i
+      exact h i.castSucc i.succ
+
+/-
+Unfortunately I think something like the following is necessary for a proper refactor
+but who has the energy
+
+lemma pairwiseToFull' {n : ℕ} {r : Rel α α} [IsTrans α r] (tf : Fin (n+1) → α) :
+  (∀ (i : Fin n), r (tf i.castSucc) (tf i.succ)) ↔ ∀ (i j : Fin (n+1)), i < j → r (tf i) (tf j) := by
+    constructor
+    · intro h j k
+      induction' j using Fin.induction with m ih
+      · induction' o : k using Fin.induction with m ih generalizing k
+        · intro l; contradiction
+        · specialize h m
+          intro l
+          specialize ih m.castSucc rfl
+          rwa[← h]
+      · specialize h m
+        rwa[←h]
+    · intro h i
+      exact h i.castSucc i.succ-/
 
 
-lemma pairwiseToFull {α ι : Type*} [LinearOrder ι](tf : ι → α) : ∀ (i : ι),
-  tf i = tf i := sorry
+omit [DecidableRel (α := α) (· ≤ ·)] in
+lemma RelSeries.trimmedLength_le_length : rs.trimmedLength ≤ rs.length := by
+  simp only [RelSeries.trimmedLength, tsub_le_iff_right]
+  have := Finset.card_image_le (f := rs.toFun) (s := .univ)
+  simp only [Finset.card_univ, Fintype.card_fin] at this
+  exact this
+
+
+omit [DecidableRel (α := α) (· ≤ ·)] in
+lemma RelSeries.length_eq_trimmedLength_iff : rs.length = rs.trimmedLength ↔ rs.toFun.Injective := by
+  constructor
+  · intro h
+    simp[RelSeries.trimmedLength] at h
+    have := Finset.card_image_iff (s := .univ) (f := rs.toFun)
+    simp_all only [Finset.card_univ, Finset.one_le_card, Finset.image_nonempty, Finset.univ_nonempty,
+      Nat.sub_add_cancel, Fintype.card_fin, Finset.coe_univ, true_iff]
+    exact fun ⦃a₁ a₂⦄ ↦ this trivial trivial
+  · intro h
+    apply antisymm (r := (· ≤ ·))
+    · have := Finset.card_le_card_of_injOn (s := .univ) (t := Finset.image rs.toFun Finset.univ)
+        rs.toFun (by simp) h.injOn
+      simp at this
+      simp[RelSeries.trimmedLength]
+      omega
+    · exact RelSeries.trimmedLength_le_length rs
+
 
 /-
 This should almost certainly be rs i.castSucc = rs.succ, but it's more annoying to change
@@ -156,11 +224,8 @@ theorem RelSeries.trimmedLength_exists_eq
 (hrs : rs.length > rs.trimmedLength) : ∃ i, rs i = rs (i+1) := by
   contrapose! hrs
   suffices rs.toFun.Injective by
-    have := Finset.card_le_card_of_injOn (s := .univ) (t := Finset.image rs.toFun Finset.univ)
-      rs.toFun (by simp) this.injOn
-    simp only [Finset.card_univ, Fintype.card_fin] at this
-    simp only [trimmedLength, ge_iff_le]
-    omega
+    exact ((RelSeries.length_eq_trimmedLength_iff rs).mpr this).le
+
   intro i j hij
   obtain hij'|rfl|hij' := lt_trichotomy i j
   · have h₁ : i + 1 ≤ j := Fin.add_one_le_of_lt hij'
@@ -192,6 +257,13 @@ If rs has length greater than 0, there must be some index i such that rs i.castS
 theorem RelSeries.trimmedLength_exists_le
 (hrs : rs.trimmedLength > 0) : ∃ (i : Fin rs.length), rs i.castSucc < rs i.succ := by
   contrapose! hrs
+  have hrs' : ∀ (i : Fin rs.length), rs.toFun i.castSucc = rs.toFun i.succ := by
+   intro j
+   apply eq_of_le_of_not_lt
+   · exact rs.step j
+   · exact hrs j
+
+  rw[pairwiseToFull] at hrs'
   suffices ∀ i, rs i = rs 0 by
     unfold RelSeries.trimmedLength
     suffices Finset.image rs.toFun Finset.univ = {rs.toFun 0} by simp[this]
@@ -202,36 +274,9 @@ theorem RelSeries.trimmedLength_exists_le
     ext:1
     apply this
   intro i
-  have hrs' : ∀ (i : Fin rs.length), rs.toFun i.castSucc = rs.toFun i.succ := by
-   intro j
-   apply eq_of_le_of_not_lt
-   · exact rs.step j
-   · exact hrs j
-  /-
-  This should be its own lemma, but to me its unclear what the lemma should be.
-  Potentially just what it says there
-  -/
-  induction' o : i.val with n ih generalizing i
-  · congr
-    exact Eq.symm (Fin.eq_of_val_eq (id (Eq.symm o)))
-  · specialize ih (i-1)
-    have o' : Fin.val (i-1) = n := by
-      have : n = ↑i - 1 := by omega
-      rw[this]
-      rw[Fin.coe_sub_one]
-      simp only [ite_eq_right_iff]
-      aesop
-    specialize ih o'
-    rw[← ih]
-    let ipred := Fin.pred i (by aesop)
-    specialize hrs' ipred
-    simp only at hrs'
-    convert hrs'.symm
-    subst o'
-    simp_all only [Fin.succ_pred, ipred]
-    · apply Fin.eq_of_val_eq
-      simp only [Fin.coe_castSucc, ipred, Fin.coe_pred]
-      aesop
+  exact hrs' i 0
+
+
 
 
 lemma Finset.univ_eq (n : ℕ) :
@@ -259,7 +304,6 @@ lemma Finset.baz (n : ℕ) :(Finset.univ : Finset (Fin (n + 1))) =
           rw[← Fin.val_eq_val] at ha
           exact ha
         omega
-
       let a' : Fin (n - 1 + 1) := ⟨a, ha2⟩
       use a'
       apply Fin.eq_of_val_eq
@@ -312,25 +356,18 @@ theorem RelSeries.trimmedLength_eraseLast_of_lt
       rw[Finset.baz, Finset.image_union, Finset.image_singleton,
         Finset.image_image, Finset.card_union_of_disjoint, Finset.card_singleton]
       · rfl
-      · simp
+      · simp only [Finset.disjoint_singleton_right, Finset.mem_image, Finset.mem_univ,
+        Function.comp_apply, true_and, not_exists]
         intro i
         apply ne_of_lt
         obtain ⟨j, hj⟩ := lastlt
         have h₂ : rs (@Fin.castLE (rs.length - 1 + 1) (rs.length + 1) (by omega) i) ≤
                   rs j.castSucc := by
           apply RelSeries.map_le
-          have := i.2
           apply Fin.mk_le_of_le_val
-          have : i.val ≤ rs.length - 1  := by omega
-          apply le_trans (b := rs.length - 1)
-          exact this
-
-          have : ↑(j.castSucc) = rs.length - 1 := by
-            have := hj.2
-            have fact : j.val = j.castSucc.val := by exact rfl
-            rw[← fact]
-            omega
-          rw[this]
+          have h1 : i.val ≤ rs.length - 1  := by omega
+          have h2 : j.val = rs.length - 1 := by omega
+          simpa[← h2] using h1
 
         apply lt_of_le_of_lt (b := rs j.castSucc)
         exact h₂
