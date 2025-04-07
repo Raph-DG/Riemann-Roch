@@ -27,95 +27,137 @@ open Order
 open Ring
 
 
+/-
+This doesn't feel like the right level of generality.
+At the same time it doesn't feel that bad either, so I'm not sure
+
+I really don't know if this or the other proof we had is better. I think one thing to note
+here is that this really ought to be a statement about just Withbot anything rather than
+ℕ∞ necessarily.
+
+
+
+This will probably work if instead of using
+-/
+/--/
+lemma test' {α : Type*} {ι : Sort*} [ConditionallyCompleteLattice α] [Nonempty ι] {f : ι → WithBot (WithTop α)} (ex : ∃ i, f i ≠ ⊥) :
+    ⨆ i, f i = ⨆ i, (WithBot.unbot' ⊥ (f i) : WithTop α) := by
+  rw[WithBot.coe_iSup]
+  #check @iSup_eq_of_forall_le_of_forall_lt_exists_gt (WithBot (WithTop α)) ι (@WithBot.WithTop.completeLattice α (by infer_instance)) --f := f) --(α := WithBot α) (f := f) (b := ⨆ i, (WithBot.unbot' ⊥ (f i) : α))--(b := (⨆ i : ι, (@WithBot.some α (WithBot.unbot' ⊥ (f i))))
+  rw[iSup_eq_of_forall_le_of_forall_lt_exists_gt (ι := ι) (f := f) (b := ((⨆ i, (WithBot.unbot' ⊥ (f i) : WithTop α)) : WithBot (WithTop α)))]
+  exact OrderTop.bddAbove (Set.range fun i ↦ WithBot.unbot' ⊥ (f i))-/
+  /-
+    · intro i
+      by_cases o : (f i = ⊥)
+      · rw[o]; simp
+      · have : ↑(WithBot.unbot' 0 (f i)) = f i := by
+          cases k : (f i)
+          · contradiction
+          · rfl
+        rw[← this]
+        exact le_iSup_iff.mpr fun b a ↦ a i
+    · intro w hw
+      obtain ⟨i, hi⟩ := lt_iSup_iff.mp hw
+      by_cases o : (f i = ⊥)
+      · obtain ⟨j, hj⟩ := ex
+        use j
+        have : f j ≥ 0 := by
+          cases k : (f j)
+          · contradiction
+          · simp
+        apply lt_of_lt_of_le (b := 0)
+        · simp[o] at hi
+          assumption
+        · exact this
+      · use i
+        simp_all
+        have : ↑(WithBot.unbot' 0 (f i)) = f i := by
+          cases k : (f i)
+          · contradiction
+          · rename_i a
+            exact rfl
+        rw[←this]
+        exact hi
+  · exact OrderTop.bddAbove (Set.range fun i ↦ WithBot.unbot' ⊥ (f i))--exact OrderTop.bddAbove (Set.range fun i ↦ WithBot.unbot' 0 (f i))-/
+
+lemma WithBot.coe_unbot'_iSup {ι : Sort*} [Nonempty ι] {f : ι → WithBot ℕ∞} (ex : ∃ i, f i ≠ ⊥) :
+    ⨆ i, f i = ⨆ i, (WithBot.unbotD 0 (f i) : ℕ∞) := by
+  rw[WithBot.coe_iSup]
+  · rw[iSup_eq_of_forall_le_of_forall_lt_exists_gt]
+    · intro i
+      by_cases o : (f i = ⊥)
+      · rw[o]; simp
+      · have : ↑(WithBot.unbotD 0 (f i)) = f i := by
+          cases k : (f i)
+          · contradiction
+          · exact rfl
+        rw[← this]
+        exact le_iSup_iff.mpr fun b a ↦ a i
+    · intro w hw
+      obtain ⟨i, hi⟩ := lt_iSup_iff.mp hw
+      by_cases o : (f i = ⊥)
+      · obtain ⟨j, hj⟩ := ex
+        use j
+        have : f j ≥ 0 := by
+          cases k : (f j)
+          · contradiction
+          · simp
+        apply lt_of_lt_of_le (b := 0)
+        · simp[o] at hi
+          assumption
+        · exact this
+      · use i
+        simp_all
+        have : ↑(WithBot.unbotD 0 (f i)) = f i := by
+          cases k : (f i)
+          · contradiction
+          · rename_i a
+            exact rfl
+        rw[←this]
+        exact hi
+  · exact OrderTop.bddAbove (Set.range fun i ↦ WithBot.unbotD 0 (f i))
 
 lemma WithBot.add_iSup {ι : Sort*} [Nonempty ι] {a : WithBot ℕ∞} (f : ι → WithBot ℕ∞) :
-a + ⨆ i, f i = ⨆ i, a + f i := by
+    a + ⨆ i, f i = ⨆ i, a + f i := by
   refine le_antisymm ?_ <| iSup_le fun i ↦ add_le_add_left (le_iSup ..) _
-
   obtain m | hf := eq_or_ne (⨆ i, f i) ⊥
   · simp[m]
   cases a
   · simp
   · rename_i a
-    simp only [ne_eq, iSup_eq_bot, not_forall, WithBot.ne_bot_iff_exists] at hf
-    obtain ⟨i, n, hn⟩ := hf
-    cases a
-    · apply le_top.trans
-      rw[le_iSup_iff]
-      intro l hl
-      specialize hl i
-      simp[hn.symm, ←WithBot.coe_top, ←WithBot.coe_add] at hl
-      simpa using hl
-    · rename_i a
+    let g : ι → ℕ∞ := fun i ↦ WithBot.unbotD 0 (f i)
+    have h1 : ∀ i, unbotD 0 (f i) = f i ∨ f i = ⊥ := by
+      intro i
+      cases (f i)
+      · exact add_eq_bot.mp rfl
+      · exact unbotD_eq_self_iff.mp rfl
+    have enatStat := ENat.add_iSup (fun i ↦ WithBot.unbotD 0 (f i)) (a := a)
+    simp at hf
+    rw[WithBot.coe_unbot'_iSup hf]
+    obtain ⟨x, hx⟩ := hf
+    simp[WithBot.ne_bot_iff_exists] at hx
+    obtain ⟨fx, hfx⟩ := hx
 
-      let g : ι → ℕ∞ := fun i ↦ WithBot.unbot' 0 (f i)
+    rw[← WithBot.coe_add, enatStat, WithBot.coe_iSup]
+    · simp only [coe_add, iSup_le_iff]
+      intro i
+      obtain h | h := h1 i
+      · rw[h]
+        exact le_iSup_iff.mpr fun b a ↦ a i
+      · simp[h]
+        refine le_iSup_iff.mpr ?_
+        intro b j
+        specialize j x
+        have : unbotD 0 (f x) = f x := by
+          nth_rw 2 [←(WithBot.unbotD_coe 0 (f x))]
+          rw[←hfx]
+          rfl
+        have : f x ≥ 0 := by
+          rw[←hfx]
+          simp[zero_le fx]
+        exact le_trans (b := (↑a + f x)) (le_add_of_nonneg_right this) j
+    · exact OrderTop.bddAbove (Set.range fun i ↦ a + unbotD 0 (f i))
 
-      trans ((a : ℕ∞) : WithBot ℕ∞) + ⨆ i, g i
-      · suffices ⨆ i, f i ≤ ⨆ i, g i by
-          exact add_le_add_left this ↑↑a
-        simp[g, WithBot.le_coe_iff, le_iSup_iff]
-        intro j m hm b hb
-        specialize hb j
-        simp[hm] at hb
-        exact hb
-      trans (((⨆ i, a + g i) : ℕ∞) : WithBot ℕ∞)
-      · simp[WithBot.le_coe_iff, le_iSup_iff]
-        intro b hb c hc
-        simp[←WithBot.coe_add] at hb
-        have : a + ⨆ i, g i ≤ c := by
-          intro k hk
-          cases b
-          · simp only [ENat.some_eq_coe]
-            subst hk
-            simp_all only [ENat.some_eq_coe]
-            suffices False by exact False.elim this
-            have : ↑a + ⨆ i, g i ≤ k := by simpa[ENat.add_iSup]
-            simp_all
-          · rename_i b
-            use b
-            subst hk
-            simp[hc]
-            constructor
-            · assumption
-            · simp_all
-              suffices (b : ℕ∞) ≤ k by
-                exact ENat.coe_le_coe.mp this
-              have : ↑a + ⨆ i, g i ≤ k := by simpa[ENat.add_iSup]
-              rw[hb] at this
-              exact this
-        exact le_of_eq_of_le (id (Eq.symm hb)) this
-
-      trans ⨆ i, ((a : ℕ∞) : WithBot ℕ∞) + g i
-      · simp[WithBot.coe_le_iff, le_iSup_iff]
-        intro b hb
-        obtain m | hb' := eq_or_ne b ⊥
-        · subst m
-          simp_all
-        · have : ∃ b' : ℕ∞, b = b' := by
-            exact Option.ne_none_iff_exists'.mp hb'
-          obtain ⟨b', hb'⟩ := this
-          use b'
-          constructor
-          · assumption
-          · exact fun i ↦ (fun a_1 ↦ (WithBot.coe_le a_1).mp) hb' (hb i)
-      · simp
-        intro j
-        rw[le_iSup_iff]
-        intro b hb
-        obtain m | hfj := eq_or_ne (f j) ⊥
-
-        · specialize hb i
-          simp[m, ←hn, g] at hb ⊢
-          apply le_trans _ hb
-          norm_cast
-          exact le_self_add
-        specialize hb j
-        suffices g j = f j by rwa[this]
-        dsimp only [g]
-        revert hfj
-        generalize f j = x
-        cases x
-        all_goals simp
 
 lemma WithBot.iSup_add {ι : Sort*} [Nonempty ι] {a : WithBot ℕ∞} (f : ι → WithBot ℕ∞) :
     (⨆ i, f i) + a = ⨆ i, f i + a := by simp [add_comm, WithBot.add_iSup]

@@ -40,6 +40,20 @@ open Ring
            [Module R M']
 
 
+  theorem RelSeries.exists_ltSeries_ge_head_bot
+  (rs : RelSeries (α := Submodule R M) (· < ·)) :
+  ∃ xs : RelSeries (α := Submodule R M) (· < ·),
+  xs.length ≥ rs.length ∧ xs.head = ⊥ ∧ xs.last = rs.last := 
+    Or.elim (em (rs.head = ⊥)) (by aesop)
+    (by intro h; use cons rs ⊥ (by exact Ne.bot_lt' fun a ↦ h (id (Eq.symm a))); simp)
+      #min_imports
+
+  theorem RelSeries.exists_ltSeries_le_last_top
+  (rs : RelSeries (α := Submodule R M) (· < ·)) :
+  ∃ xs : RelSeries (α := Submodule R M) (· < ·),
+  xs.length ≥ rs.length ∧ xs.last = ⊤ ∧ xs.head = rs.head := 
+    Or.elim (em (rs.last = ⊤)) (by aesop) 
+    (by intro h; use snoc rs ⊤ (by exact Ne.lt_top' fun a ↦ h (id (Eq.symm a))); simp)
 
   /--
   Given an LTSeries rs, there always exists an LTSeries xs with xs.length ≥ rs.length and
@@ -49,23 +63,9 @@ open Ring
   (rs : RelSeries (fun (a : Submodule R M) (b : Submodule R M) => a < b))
   : ∃ xs : RelSeries (α := Submodule R M) (· < ·),
     xs.length ≥ rs.length ∧ xs.head = ⊥ ∧ xs.last = ⊤ := by
-    by_cases h : rs.head = ⊥
-    · by_cases q : rs.last = ⊤
-      · use rs
-      · have : rs.last < ⊤ := by exact Ne.lt_top' fun a ↦ q (id (Eq.symm a))
-        use rs.snoc ⊤ this
-        aesop
-    · have : ⊥ < rs.head := by exact Ne.bot_lt' fun a ↦ h (id (Eq.symm a))
-      by_cases q : rs.last = ⊤
-      · use rs.cons ⊥ this
-        aesop
-      · let this' : (rs.cons ⊥ this).last < ⊤ := by
-          simp only [last_cons]
-          exact Ne.lt_top' fun a ↦ q (id (Eq.symm a))
-        use (rs.cons ⊥ this).snoc ⊤ this'
-        simp only [snoc_length, cons_length, ge_iff_le, head_snoc, head_cons, last_snoc, and_self,
-          and_true]
-        omega
+    obtain ⟨rs', hrs'⟩ := rs.exists_ltSeries_ge_head_bot
+    obtain ⟨rs'', hrs''⟩ := rs'.exists_ltSeries_le_last_top
+    use rs''; exact ⟨le_trans hrs'.1 hrs''.1, by aesop⟩
 
 
   def RelSeries.submoduleMap (rs : RelSeries (α := Submodule R M) (· < ·))
@@ -82,57 +82,27 @@ open Ring
     (rs : RelSeries (α := Submodule R S.X₂) (· < ·)) (i : Fin rs.length)
     (p : (rs.submoduleMap S.g.hom).toFun i.castSucc = (rs.submoduleMap S.g.hom).toFun i.succ)
     : (rs.submoduleComap S.f.hom).toFun i.castSucc < (rs.submoduleComap S.f.hom).toFun i.succ := by
-
-      have kernelInt : LinearMap.ker S.g.hom ⊓ (rs.toFun i.castSucc) < LinearMap.ker S.g.hom ⊓ (rs.toFun i.succ) := by
-
-       have p' : Submodule.map S.g.hom (rs.toFun i.castSucc) = Submodule.map S.g.hom (rs.toFun i.succ) :=
-        by aesop
-       have ans := LinearMap.ker_intersection_mono_of_map_eq (rs.step i) p'
-       aesop
-
-      have exactness : LinearMap.ker S.g.hom = LinearMap.range S.f.hom := by
-        have proof := CategoryTheory.ShortComplex.Exact.moduleCat_range_eq_ker hS.exact
-        exact id (Eq.symm proof)
-
-      rw[exactness] at kernelInt
-
-      simp_all
-
-      have intLem (k : Fin (rs.length + 1)) :
-       (rs.submoduleComap S.f.hom).toFun k = Submodule.comap S.f.hom (LinearMap.range S.f.hom ⊓ rs.toFun k) :=
-         by aesop
-      rw[intLem i.castSucc, intLem i.succ]
-
-      have lem := Set.preimage_mono_of_range_intersection.mp kernelInt
-      simp
-      have comap_range : Submodule.comap S.f.hom (LinearMap.range S.f.hom) = ⊤ := by aesop
-      rw[comap_range]
-      simp
-      exact lem
+      have kernelInt : LinearMap.ker S.g.hom ⊓ (rs.toFun i.castSucc) <
+        LinearMap.ker S.g.hom ⊓ (rs.toFun i.succ) :=
+          LinearMap.ker_intersection_mono_of_map_eq (rs.step i) (by aesop)
+      rw[← CategoryTheory.ShortComplex.Exact.moduleCat_range_eq_ker hS.exact] at kernelInt
+      apply Set.range_intersection_ssubset_iff_preimage_ssubset.mp kernelInt
+    
 
 
-    theorem RelSeries.submodule_map_lt_of_comap_eq_exact {S : CategoryTheory.ShortComplex (ModuleCat R)} (hS : S.ShortExact)
-    (rs : RelSeries (α := Submodule R S.X₂) (· < ·)) (i : Fin rs.length)
-    (p : (rs.submoduleComap S.f.hom).toFun i.castSucc = (rs.submoduleComap S.f.hom).toFun i.succ)
-    : (rs.submoduleMap S.g.hom).toFun i.castSucc < (rs.submoduleMap S.g.hom).toFun i.succ := by
-
-      let exactness : LinearMap.range S.f.hom = LinearMap.ker S.g.hom :=
-        CategoryTheory.ShortComplex.Exact.moduleCat_range_eq_ker hS.exact
-
-      let imInt : LinearMap.range S.f.hom ⊓ (rs.toFun i.castSucc) = LinearMap.range S.f.hom ⊓ (rs.toFun i.succ) := by
+    theorem RelSeries.submodule_map_lt_of_comap_eq_exact
+        {S : CategoryTheory.ShortComplex (ModuleCat R)} (hS : S.ShortExact)
+        (rs : RelSeries (α := Submodule R S.X₂) (· < ·)) (i : Fin rs.length)
+        (p : (rs.submoduleComap S.f.hom).toFun i.castSucc =
+        (rs.submoduleComap S.f.hom).toFun i.succ) :
+        (rs.submoduleMap S.g.hom).toFun i.castSucc < (rs.submoduleMap S.g.hom).toFun i.succ := by
+      have imInt : LinearMap.range S.f.hom ⊓ (rs.toFun i.castSucc) =
+                   LinearMap.range S.f.hom ⊓ (rs.toFun i.succ) := by
         rw[← Submodule.map_comap_eq, ←Submodule.map_comap_eq]
         exact congrArg (Submodule.map S.f.hom) p
+      rw[CategoryTheory.ShortComplex.Exact.moduleCat_range_eq_ker hS.exact] at imInt
+      apply LinearMap.map_mono_of_ker_intersection_eq (rs.step i) imInt
 
-
-      rw[exactness] at imInt
-
-      simp_all
-
-      let intLem (k : Fin (rs.length + 1)) :
-        (rs.submoduleMap S.g.hom).toFun k = Submodule.map S.g.hom (rs.toFun k) := by aesop
-      rw[intLem i.castSucc, intLem i.succ]
-
-      exact LinearMap.map_mono_of_ker_intersection_eq (rs.step i) imInt
 
   /-
   Note: this is just a rewriting of the definition of smash which yields a more general notion

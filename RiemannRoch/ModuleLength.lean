@@ -1202,8 +1202,9 @@ open CompositionSeries in
 
     theorem Module.length_additive
     {S : CategoryTheory.ShortComplex (ModuleCat R)} (hS : S.ShortExact)
-      (fl1 : IsFiniteLength R S.X₁) (fl2 : IsFiniteLength R S.X₂) (fl3 : IsFiniteLength R S.X₃):
+      (fl1 : IsFiniteLength R S.X₁) (fl2 : IsFiniteLength R S.X₂) (fl3 : IsFiniteLength R S.X₃) :
       Module.length fl2 = Module.length fl1 + Module.length fl3 := by
+
 
     rw [Nat.le_antisymm_iff]
     rw[isFiniteLength_iff_exists_compositionSeries] at fl1 fl2 fl3

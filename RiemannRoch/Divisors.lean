@@ -20,7 +20,7 @@ import Mathlib.AlgebraicGeometry.Noetherian
 import Mathlib.RingTheory.UniqueFactorizationDomain
 -/
 import Mathlib
-import RiemannRoch.ModuleLength
+import RiemannRoch.NewModuleLength
 import RiemannRoch.Proper
 import RiemannRoch.InvertibleSheaf
 
@@ -130,7 +130,7 @@ instance closedImmersionTargettingSchemeSetoid (X : Scheme) : Setoid (ClosedImme
       simp[existsIsoOfClosedSubscheme, IsSubschemeMorphism]
       intro y1iy2 eq1 y2iy3 eq2
       use y1iy2 ≪≫ y2iy3
-      simp
+      simp only [Iso.trans_hom, Category.assoc]
       rw[←eq2]
       exact eq1
     }
@@ -163,11 +163,18 @@ structure PrimeWeilDivisor (X : Scheme) where
 
 def WeilDivisor (X : Scheme) := FreeAbelianGroup (PrimeWeilDivisor X)
 
+structure PrimeCycle (i : ℕ) (X : Type*) [TopologicalSpace X] where
+  space : TopologicalSpace.IrreducibleCloseds X
+  codim : Order.coheight space = i -- The coheight here is a way of computing the codimension of our space
+
+def CH (i : ℕ) (X : Type*) [TopologicalSpace X] := FreeAbelianGroup (PrimeCycle i X)
+
 instance (X : Scheme) : AddCommGroup (WeilDivisor X) :=
   inferInstanceAs (AddCommGroup <| FreeAbelianGroup (PrimeWeilDivisor X))
 
 variable {Y : Scheme}
 #check (0 : WeilDivisor Y)
+#check Set
 
 
 /-

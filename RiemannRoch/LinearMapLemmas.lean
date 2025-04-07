@@ -35,48 +35,28 @@ open Ring
            [Module R M]
            [Module R M']
 
-
-
-
+  open LinearMap
+  theorem LinearMap.ne_map_or_ne_kernel_intersection_of_lt {A B : Submodule R M} (f :  M →ₗ[R] M') (hab : A < B) :
+    Submodule.map f A ≠ Submodule.map f B ∨ ker f ⊓ A ≠ ker f ⊓ B := by
+      by_cases q : ker f ⊓ A ≠ ker f ⊓ B
+      · exact Or.inr q
+      · simp only [ne_eq, not_not] at q
+        apply Or.inl
+        intro h
+        apply hab.ne
+        apply le_antisymm hab.le
+        intro x hx
+        obtain ⟨z, hz, hzy⟩ := (h ▸ ⟨x, hx, rfl⟩ : f x ∈ Submodule.map f A)
+        suffices x - z ∈ LinearMap.ker f ⊓ A by simpa using add_mem this.2 hz
+        exact q ▸ ⟨by simp[hzy], by apply sub_mem hx (hab.le hz)⟩
+  #find_home! LinearMap.ne_map_or_ne_kernel_intersection_of_lt
   theorem LinearMap.ker_intersection_mono_of_map_eq {A B : Submodule R M} {f :  M →ₗ[R] M'} (hab : A < B)
-    (q : Submodule.map f A = Submodule.map f B) : LinearMap.ker f ⊓ A < LinearMap.ker f ⊓ B := by
-      rw[lt_iff_le_and_ne]
-      constructor
-      · exact inf_le_inf le_rfl hab.le
-      · intro h
-        apply hab.ne
-        apply le_antisymm hab.le
-        intro x hx
-        let y := f x
-        have hy : y ∈ Submodule.map f B := by use x, hx
-        rw[←q] at hy
-        obtain ⟨z, hz, hzy⟩ := hy
-        suffices x - z ∈ LinearMap.ker f ⊓ A by
-          simpa using add_mem this.2 hz
-        rw[h]
-        constructor
-        · simp[hzy]
-        · apply sub_mem hx (hab.le hz)
+    (q : Submodule.map f A = Submodule.map f B) : LinearMap.ker f ⊓ A < LinearMap.ker f ⊓ B :=
+      lt_iff_le_and_ne.mpr ⟨inf_le_inf le_rfl hab.le,
+       Or.elim (LinearMap.ne_map_or_ne_kernel_intersection_of_lt f hab)
+        (fun h ↦ False.elim (h q)) (fun h ↦ h)⟩
 
-  #find_home! LinearMap.ker_intersection_mono_of_map_eq
-  -- Since this is almost exactly the same proof this could probably be given a bit of a refactor,
-  -- but that's alright
+
   theorem LinearMap.map_mono_of_ker_intersection_eq {A B : Submodule R M} {f :  M →ₗ[R] M'} (hab : A < B)
-    (q : LinearMap.ker f ⊓ A = LinearMap.ker f ⊓ B) : Submodule.map f A < Submodule.map f B := by
-      rw[lt_iff_le_and_ne]
-      constructor
-      · exact Set.image_mono hab.le
-      · intro h
-        apply hab.ne
-        apply le_antisymm hab.le
-        intro x hx
-        let y := f x
-        have hy : y ∈ Submodule.map f B := by use x, hx
-        rw[←h] at hy
-        obtain ⟨z, hz, hzy⟩ := hy
-        suffices x - z ∈ LinearMap.ker f ⊓ A by
-          simpa using add_mem this.2 hz
-        rw[q]
-        constructor
-        · simp[hzy]
-        · apply sub_mem hx (hab.le hz)
+    (q : LinearMap.ker f ⊓ A = LinearMap.ker f ⊓ B) : Submodule.map f A < Submodule.map f B :=
+      lt_iff_le_and_ne.mpr ⟨Set.image_mono hab.le, Or.elim (LinearMap.ne_map_or_ne_kernel_intersection_of_lt f hab) (fun h ↦ h) (fun h ↦ False.elim (h q))⟩

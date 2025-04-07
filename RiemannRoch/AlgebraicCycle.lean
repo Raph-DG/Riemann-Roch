@@ -2,381 +2,122 @@ import Mathlib
 import RiemannRoch.NewModuleLength
 import Batteries.Tactic.ShowUnused
 
-
-
 open Filter Metric Real Set Topology
 
 open AlgebraicGeometry
+open LocallyRingedSpace
 open CategoryTheory
 open Opposite.op
 open Module
 open Order
 open Ring
+open TopologicalSpace
 
 universe u v
 variable (R : Type v)
          [CommRing R]
          (i : ℕ)
-         (X : Scheme)
+         {X : Scheme}
 
-#check Function.locallyFinsuppWithin
-/-
-theorem supportDiscreteWithin_iff_locallyFiniteWithin {U : Set X}
-   {f : X → ℤ} (h : f.support ⊆ U) :
-    f =ᶠ[codiscreteWithin U] 0 ↔ ∀ z ∈ U, ∃ t ∈ 𝓝 z, Set.Finite (t ∩ f.support) := by
-  have : f.support = (U \ {x | f x = (0 : X → ℤ) x}) := by
-    ext x
-    simp only [Function.mem_support, ne_eq, Pi.zero_apply, mem_diff, mem_setOf_eq, iff_and_self]
-    exact (h ·)
-  rw [EventuallyEq, Filter.Eventually]--, codiscreteWithin_iff_locallyFiniteComplementWithin, this]
-
-  sorry-/
-
-
-
-
-
+class TopologicalSpace.dimensionFunction {Z : Type*} [TopologicalSpace Z] (δ : Z → ℤ) where
+  increase : ∀ x y : Z, x ⤳ y ∧ x ≠ y → δ (x) > δ (y)
+  step : ∀ x y : Z, @CovBy Z (specializationPreorder Z).toLT x y
 
 /-
 We define a preorder instance on a scheme X saying x ≤ y if y generalises x. This ought to
 correspond to x ≤ y ↔ closure {x} ⊆ closure {y},
 -/
-instance {X : Scheme} : Preorder X where
-  le x y := y ⤳ x --U ∈ _root_.closure {V}
+instance {X : Scheme} : Preorder X := specializationPreorder X /-where
+  le x y := y ⤳ x
   le_refl := by
     exact fun a ⦃U⦄ a ↦ a
-    /-intro a
-    simp_all only
-    exact Specializes.mem_closure fun ⦃U⦄ a ↦ a-/
   le_trans := by
-    exact fun a b c a_1 a_2 ⦃U⦄ a ↦ a_2 (a_1 a)
-    /-intro a b c d e
-    simp_all
-    aesop-/
+    exact fun a b c a_1 a_2 ⦃U⦄ a ↦ a_2 (a_1 a)-/
 
-/-
-Note that an algebraic cycle needs to be equidimensional, which is why I went back to defining
-the graded pieces like this.
-
-As of right now, I'm not sure if it's better to have this definition and to define CH^i(X)
-separately or just to define CH^i now.
--/
-structure AlgebraicCycle (X : Scheme) where
-  toFun : X → ℤ
-  locfin : LocallyFinite (fun z : X ↦ if toFun z = 0 then ∅ else closure {z}) -- {Z | n Z ≠ 0} is locally finite
-  --equidim (Z : X) : toFun Z ≠ 0 → Order.coheight Z = i
+abbrev AlgebraicCycle (X : Scheme) := Function.locallyFinsuppWithin (⊤ : Set X) ℤ
 
 namespace AlgebraicCycle
 
-variable {X}
-
-variable {i} in
-
-
-protected def addSubgroup : AddSubgroup (X → ℤ) where
-  carrier := {f | LocallyFinite (fun z : X ↦ if f z = 0 then ∅ else closure {z})} --∧ ∀ Z : X, f Z ≠ 0 → Order.coheight Z = i}
-  add_mem' {f g} hf hg := by
-    simp_all[LocallyFinite]
-    --constructor
-    intro x
-    obtain ⟨Uf, hUf⟩ := hf x
-    obtain ⟨Ug, hUg⟩ := hg x
-
-    use Uf ∩ Ug
-    constructor
-    · exact Filter.inter_mem hUf.1 hUg.1
-    · have h : {i | ((if f i + g i = 0 then ∅ else _root_.closure {i}) ∩ (Uf ∩ Ug)).Nonempty} ⊆
-              {i | ((if f i = 0 then ∅ else _root_.closure {i}) ∩ Uf ∪ (if g i = 0 then ∅ else
-              _root_.closure {i}) ∩ Ug).Nonempty} := by
-          simp_all
-          intro a ha
-          split_ifs at ha
-          · aesop
-          · split_ifs
-            · simp_all
-            · simp_all[Set.Nonempty]
-              obtain ⟨t, ht⟩ := ha
-              exact ⟨t, ht.1, ht.2.2⟩
-            · simp_all[Set.Nonempty]
-              obtain ⟨t, ht⟩ := ha
-              exact ⟨t, ht.1, ht.2.1⟩
-            · simp_all[Set.Nonempty]
-              obtain ⟨t, ht⟩ := ha
-              exact Or.inl ⟨t, ht.1, ht.2.1⟩
-
-      suffices {i | ((if f i = 0 then ∅ else _root_.closure {i})
-      ∩ Uf ∪ (if g i = 0 then ∅ else _root_.closure {i}) ∩ Ug).Nonempty}.Finite by
-        exact Set.Finite.subset this h
-
-      suffices {i | ((if f i = 0 then ∅ else _root_.closure {i}) ∩ Uf).Nonempty}.Finite ∧
-              {i | ((if g i = 0 then ∅ else _root_.closure {i}) ∩ Ug).Nonempty}.Finite by
-        simp_all
-        exact Set.Finite.union this.1 this.2
-      exact ⟨hUf.2, hUg.2⟩
-    /-
-    · intro Z hZ
-      replace hg := hg.2 Z
-      replace hf := hf.2 Z
-      have : f Z ≠ 0 ∨ g Z ≠ 0 := by
-        by_cases o : f Z = 0
-        all_goals simp_all
-
-      obtain h | h := this
-      · exact hf h
-      · exact hg h-/
-  zero_mem' := by
-    simp
-    intro x
-    use ⊤
-    all_goals simp
-  neg_mem' {f} hf := by simp_all
-
-variable {i}
-
-instance : FunLike (AlgebraicCycle X) X ℤ where
-  coe D := D.toFun
-  coe_injective' := fun ⟨_, _⟩ ⟨_, _⟩ ↦ by simp
-
-@[ext]
-lemma ext {D₁ D₂ : AlgebraicCycle X} (h : ∀ a, D₁ a = D₂ a) : D₁ = D₂ := DFunLike.ext _ _ h
-
-lemma coe_injective : Function.Injective (· : AlgebraicCycle X → X → ℤ) := DFunLike.coe_injective
-
-protected lemma memAddSubgroup (D : AlgebraicCycle X) :
-    (D : X → ℤ) ∈ AlgebraicCycle.addSubgroup := D.locfin --⟨D.locfin, D.equidim⟩
-
-@[simps]
-def mk_of_mem  (f : X → ℤ) (hf : f ∈ AlgebraicCycle.addSubgroup) : AlgebraicCycle X :=
-  ⟨f, hf⟩ --, hf.2⟩
-
-instance : Zero (AlgebraicCycle X) where
-  zero := mk_of_mem 0 <| zero_mem _
-
-instance : Add (AlgebraicCycle X) where
-  add D₁ D₂ := mk_of_mem (D₁ + D₂) <| add_mem D₁.memAddSubgroup D₂.memAddSubgroup
-
-instance : Neg (AlgebraicCycle X) where
-  neg D := mk_of_mem (-D) <| neg_mem D.memAddSubgroup
-
-instance : Sub (AlgebraicCycle X) where
-  sub D₁ D₂ := mk_of_mem (D₁ - D₂) <| sub_mem D₁.memAddSubgroup D₂.memAddSubgroup
-
-instance : SMul ℕ (AlgebraicCycle X) where
-  smul n D := mk_of_mem (n • D) <| nsmul_mem D.memAddSubgroup n
-
-instance : SMul ℤ (AlgebraicCycle X) where
-  smul n D := mk_of_mem (n • D) <| zsmul_mem D.memAddSubgroup n
-
-@[simp] lemma coe_zero : ((0 : AlgebraicCycle X) : X → ℤ) = 0 := rfl
-@[simp] lemma coe_add (D₁ D₂ : AlgebraicCycle X) : (↑(D₁ + D₂) : X → ℤ) = D₁ + D₂ := rfl
-@[simp] lemma coe_neg (D : AlgebraicCycle X) : (↑(-D) : X → ℤ) = -(D : X → ℤ) := rfl
-@[simp] lemma coe_sub (D₁ D₂ : AlgebraicCycle X) : (↑(D₁ - D₂) : X → ℤ) = D₁ - D₂ := rfl
-@[simp] lemma coe_nsmul (D : AlgebraicCycle X) (n : ℕ) : (↑(n • D) : X → ℤ) = n • (D : X → ℤ) := rfl
-@[simp] lemma coe_zsmul (D : AlgebraicCycle X) (n : ℤ) : (↑(n • D) : X → ℤ) = n • (D : X → ℤ) := rfl
-
-instance : AddCommGroup (AlgebraicCycle X) :=
-  Function.Injective.addCommGroup (M₁ := AlgebraicCycle X) (M₂ := X → ℤ)
-    _ coe_injective coe_zero coe_add coe_neg coe_sub coe_nsmul coe_zsmul
-
-instance : LE (AlgebraicCycle X) where
-  le := fun D₁ D₂ ↦ (D₁ : X → ℤ) ≤ D₂
-
-lemma le_def {D₁ D₂ : AlgebraicCycle X} : D₁ ≤ D₂ ↔ (D₁ : X → ℤ) ≤ (D₂ : X → ℤ) := ⟨(·),(·)⟩
-
-instance : LT (AlgebraicCycle X) where
-  lt := fun D₁ D₂ ↦ (D₁ : X → ℤ) < D₂
-
-instance : Max (AlgebraicCycle X) where
-  max D₁ D₂ := {
-    toFun z := max (D₁ z) (D₂ z)
-    locfin := by
-      intro x
-      obtain ⟨U₁, hU₁⟩ := D₁.locfin x
-      obtain ⟨U₂, hU₂⟩ := D₂.locfin x
-      use U₁ ∩ U₂
-      constructor
-      · exact Filter.inter_mem hU₁.1 hU₂.1
-      · /-
-        This shows that this exact same proof works for +, ⊓ and ⊔. I suppose what we're using here
-        is that f(D₁ i, D₂ i) ≠ 0 implies D₁ i ≠ 0 or D₂ i ≠ 0.
-        -/
-        simp_all
-        have h : {i | ((if D₁ i ⊔ D₂ i = 0 then ∅ else _root_.closure {i}) ∩ (U₁ ∩ U₂)).Nonempty} ⊆
-                {i | ((if D₁ i = 0 then ∅ else _root_.closure {i}) ∩ U₁ ∪ (if D₂ i = 0 then ∅ else
-                _root_.closure {i}) ∩ U₂).Nonempty} := by
-          simp_all
-          intro a ha
-          split_ifs at ha
-          · aesop
-          · split_ifs
-            · simp_all
-            · simp_all[Set.Nonempty]
-              obtain ⟨t, ht⟩ := ha
-              exact ⟨t, ht.1, ht.2.2⟩
-            · simp_all[Set.Nonempty]
-              obtain ⟨t, ht⟩ := ha
-              exact ⟨t, ht.1, ht.2.1⟩
-            · simp_all[Set.Nonempty]
-              obtain ⟨t, ht⟩ := ha
-              exact Or.inl ⟨t, ht.1, ht.2.1⟩
-
-        suffices {i | ((if D₁ i = 0 then ∅ else _root_.closure {i})
-        ∩ U₁ ∪ (if D₂ i = 0 then ∅ else _root_.closure {i}) ∩ U₂).Nonempty}.Finite by
-          exact Set.Finite.subset this h
-
-        suffices {i | ((if D₁ i = 0 then ∅ else _root_.closure {i}) ∩ U₁).Nonempty}.Finite ∧
-                {i | ((if D₂ i = 0 then ∅ else _root_.closure {i}) ∩ U₂).Nonempty}.Finite by
-          simp_all
-          exact Set.Finite.union this.1 this.2
-
-        exact ⟨hU₁.2, hU₂.2⟩
-    /-equidim := by
-      intro Z hZ
-      simp at hZ
-      by_cases o : D₁ Z ⊔ D₂ Z = D₁ Z
-      · rw[o] at hZ
-        exact D₁.equidim Z hZ
-      · simp at o
-        have : D₁ Z ⊔ D₂ Z = D₂ Z := by exact max_eq_right_of_lt o
-        rw[this] at hZ
-        exact D₂.equidim Z hZ-/
-  }
-
-@[simp]
-lemma max_apply {D₁ D₂ : AlgebraicCycle X} {x : X} : max D₁ D₂ x = max (D₁ x) (D₂ x) := rfl
-
-instance : Min (AlgebraicCycle X) where
-  min D₁ D₂ := {
-    toFun z := min (D₁ z) (D₂ z)
-    locfin :=
-    by
-      intro x
-      obtain ⟨U₁, hU₁⟩ := D₁.locfin x
-      obtain ⟨U₂, hU₂⟩ := D₂.locfin x
-      use U₁ ∩ U₂
-      constructor
-      · exact Filter.inter_mem hU₁.1 hU₂.1
-      · simp_all
-        have h : {i | ((if D₁ i ⊓ D₂ i = 0 then ∅ else _root_.closure {i}) ∩ (U₁ ∩ U₂)).Nonempty} ⊆
-                {i | ((if D₁ i = 0 then ∅ else _root_.closure {i}) ∩ U₁ ∪ (if D₂ i = 0 then ∅ else
-                _root_.closure {i}) ∩ U₂).Nonempty} := by
-          simp_all
-          intro a ha
-          split_ifs at ha
-          · aesop
-          · split_ifs
-            · simp_all
-            · simp_all[Set.Nonempty]
-              obtain ⟨t, ht⟩ := ha
-              exact ⟨t, ht.1, ht.2.2⟩
-            · simp_all[Set.Nonempty]
-              obtain ⟨t, ht⟩ := ha
-              exact ⟨t, ht.1, ht.2.1⟩
-            · simp_all[Set.Nonempty]
-              obtain ⟨t, ht⟩ := ha
-              exact Or.inl ⟨t, ht.1, ht.2.1⟩
-
-        suffices {i | ((if D₁ i = 0 then ∅ else _root_.closure {i})
-        ∩ U₁ ∪ (if D₂ i = 0 then ∅ else _root_.closure {i}) ∩ U₂).Nonempty}.Finite by
-          exact Set.Finite.subset this h
-
-        suffices {i | ((if D₁ i = 0 then ∅ else _root_.closure {i}) ∩ U₁).Nonempty}.Finite ∧
-                {i | ((if D₂ i = 0 then ∅ else _root_.closure {i}) ∩ U₂).Nonempty}.Finite by
-          simp_all
-          exact Set.Finite.union this.1 this.2
-
-        exact ⟨hU₁.2, hU₂.2⟩
-    /-equidim := by
-      intro Z hZ
-      simp at hZ
-      by_cases o : D₁ Z ⊓ D₂ Z = D₁ Z
-      · rw[o] at hZ
-        exact D₁.equidim Z hZ
-      · simp at o
-        have : D₁ Z ⊓ D₂ Z = D₂ Z := by exact min_eq_right_of_lt o
-        rw[this] at hZ
-        exact D₂.equidim Z hZ-/
-  }
-
-@[simp]
-lemma min_def {D₁ D₂ : AlgebraicCycle X} {x : X} : min D₁ D₂ x = min (D₁ x) (D₂ x) := rfl
-
-instance : Lattice (AlgebraicCycle X) where
-  le := (· ≤ ·)
-  lt := (· < ·)
-  le_refl := by simp [le_def]
-  le_trans D₁ D₂ D₃ h₁₂ h₂₃ := fun x ↦ (h₁₂ x).trans (h₂₃ x)
-  le_antisymm D₁ D₂ h₁₂ h₂₁ := by
-    ext x
-    exact Int.le_antisymm (h₁₂ x) (h₂₁ x)
-  sup := max
-  le_sup_left D₁ D₂ := fun x ↦ by simp
-  le_sup_right D₁ D₂ := fun x ↦ by simp
-  sup_le D₁ D₂ D₃ h₁₃ h₂₃ := fun x ↦ by simp [h₁₃ x, h₂₃ x]
-  inf := min
-  inf_le_left D₁ D₂ := fun x ↦ by simp
-  inf_le_right D₁ D₂ := fun x ↦ by simp
-  le_inf D₁ D₂ D₃ h₁₃ h₂₃ := fun x ↦ by simp [h₁₃ x, h₂₃ x]
-
-instance : OrderedAddCommGroup (AlgebraicCycle X) where
-  __ := inferInstanceAs (AddCommGroup (AlgebraicCycle X))
-  __ := inferInstanceAs (Lattice (AlgebraicCycle X))
-  add_le_add_left := fun _ _ _ _ ↦ by simpa [le_def]
-
-
-/-
-  Points here are just a proxy for irreducible closeds, so this isn't quite what we want. I think
-  this definition here is a little bit silly, but taking the closure of the union also seems kind
-  of strange.
--/
-abbrev support (D : AlgebraicCycle X) :=
-    ⋃ (z : X), if D.toFun z = 0 then ∅ else _root_.closure {z}
-
-theorem support_closed {i : ℕ} {X : Scheme} (D : AlgebraicCycle X) :
-    IsClosed (D.support) := by
-  simp[AlgebraicCycle.support]
-  have := D.2
-  apply LocallyFinite.isClosed_iUnion
-  · exact this
-  · intro x
-    split_ifs
-    · exact isClosed_empty
-    · exact isClosed_closure
-
-
-/-
-This is the algebraic cycle of a point (thought of as having the canonical reduced scheme
-structure and hence having multiplicity 1)
--/
-open Classical in
 noncomputable
-def of_point (x : X) (hx : coheight x = i) : AlgebraicCycle X where
-  toFun := fun z ↦ if z = x then 1 else 0
-  locfin := by
-    simp[LocallyFinite]
-    intro z
+def single (x : X) (coeff : ℤ) : AlgebraicCycle X where
+  toFun := Set.indicator {x} (Function.const X coeff)
+  supportWithinDomain' := by simp
+  supportLocallyFiniteWithinDomain' := by
+    intro z hz
     use ⊤
     constructor
     · exact Filter.univ_mem' fun a ↦ trivial
-    · simp
-      have : {i | (if i = x then _root_.closure {i} else ∅).Nonempty} = {x} := by aesop
-      rw[this]
-      aesop
+    · rw[← Function.const_def]
+      simp
+      exact toFinite ({x} ∩ Function.support fun x ↦ coeff)
+
+-- S set
+def preimageSupport {Y : Scheme} (f : X ⟶ Y) (c : AlgebraicCycle X) (z : Y) : Set X :=
+  f.base ⁻¹' {z} ∩ c.support
+
+def preimageSupportFinite {Y : Scheme} (f : X ⟶ Y) [qf : QuasiCompact f] (c : AlgebraicCycle X)
+  (z : Y) : (preimageSupport f c z).Finite := by
+  have cpct : IsCompact (f.base ⁻¹' {z}) := by exact QuasiCompact.isCompact_preimage_singleton f z
+  rw[isCompact_iff_finite_subcover] at cpct
+  let cov : f.base ⁻¹' {z} → Set X := sorry
+  let covOpen : (∀ (i : ↑(⇑(ConcreteCategory.hom f.base) ⁻¹' {z})), IsOpen (cov i)) := sorry
+  let covCovs : ⇑(ConcreteCategory.hom f.base) ⁻¹' {z} ⊆ ⋃ i, cov i := sorry
+  specialize cpct cov covOpen covCovs
 
 
+  /-
+  Proof:
+    We want to say that the preimage of z is compact using our compactness assumption. Then, for
+    every point in the preimage, take some neighbourhood intersecting c.support in finitely
+    many places. This forms a cover of the preimage of z, and so by assumption there is some
+  -/
+  simp[preimageSupport, Function.locallyFinsuppWithin.support]
+
+
+
+
+  sorry
 
 noncomputable
 def _root_.AlgebraicGeometry.LocallyRingedSpace.Hom.residueMap {X Y : LocallyRingedSpace} (f : X.Hom Y)
   (x : ↑X.toTopCat) :
     IsLocalRing.ResidueField (Y.presheaf.stalk (f.base x)) →+*
     IsLocalRing.ResidueField (X.presheaf.stalk x) :=
-  IsLocalRing.ResidueField.lift (RingHom.comp (IsLocalRing.residue (X.presheaf.stalk x))
-   (AlgebraicGeometry.LocallyRingedSpace.Hom.stalkMap f x).hom)
+  IsLocalRing.ResidueField.map (AlgebraicGeometry.LocallyRingedSpace.Hom.stalkMap f x).hom
 
 
-open AlgebraicGeometry
-open LocallyRingedSpace
-open Order
+open Classical in
+noncomputable
+def _root_.AlgebraicGeometry.LocallyRingedSpace.Hom.degree {X Y : Scheme} (f : X ⟶ Y)
+  (x : X) : ℕ := @Module.finrank
+    (IsLocalRing.ResidueField (Y.presheaf.stalk (f.base x)))
+    (IsLocalRing.ResidueField (X.presheaf.stalk x))
+    (by infer_instance)
+    (by infer_instance)
+    (by have := RingHom.toAlgebra (f.residueMap x); exact Algebra.toModule)
+-- k function
+
+open Classical in
+noncomputable
+def mapAux {Y : Scheme} (δₓ : X → ℤ) [dimensionFunction δₓ]
+  (δₐy : Y → ℤ) [dimensionFunction δₐy] (f : X ⟶ Y) (x : X) : ℤ :=
+  if δₓ x = δₐy (f.base x) then Hom.degree f x else 0
+
+
+open Classical in
+noncomputable
+def cycleMap {Y : Scheme} (δₓ : X → ℤ) [dimensionFunction δₓ] (δₐy : Y → ℤ) [dimensionFunction δₐy]
+  (f : X ⟶ Y) [QuasiCompact f] (c : AlgebraicCycle X) : AlgebraicCycle Y where
+  toFun z := (∑ x ∈ (preimageSupportFinite f c z).toFinset, mapAux δₓ δₐy f x)
+  supportWithinDomain' := by simp
+  supportLocallyFiniteWithinDomain' := sorry -- Should be a relatively simple topological argument
+
+
+  --IsLocalRing.ResidueField.lift (RingHom.comp (IsLocalRing.residue (X.presheaf.stalk x))
+   --(AlgebraicGeometry.LocallyRingedSpace.Hom.stalkMap f x).hom)
+
+
+/-
 open Classical in
 noncomputable
 def cycleMap {Y : Scheme} (f : X ⟶ Y) (c : AlgebraicCycle X) : AlgebraicCycle Y where
@@ -394,8 +135,8 @@ def cycleMap {Y : Scheme} (f : X ⟶ Y) (c : AlgebraicCycle X) : AlgebraicCycle 
                   exact Algebra.toModule)).cast
       · exact 0
     · exact 0
-  locfin := by
-    sorry
+  supportWithinDomain' := by simp
+  supportLocallyFiniteWithinDomain' := sorry-/
 
 
 
@@ -500,7 +241,10 @@ noncomputable
 def div {X : Scheme.{u}} [IsIntegral X] [h : IsLocallyNoetherian X]
   (f : X.functionField) : AlgebraicCycle X where
     toFun Z := if h : Order.coheight Z = 1 then orderOfVanishingScheme f Z h else 0
-    locfin := by
+    supportWithinDomain' := by simp
+    supportLocallyFiniteWithinDomain' := sorry
+
+    /-locfin := by
       have := h.1
 
       /-
@@ -508,7 +252,7 @@ def div {X : Scheme.{u}} [IsIntegral X] [h : IsLocallyNoetherian X]
 
       Note that we need X locally Noetherian for local finiteness
       -/
-      sorry
+      sorry-/
 
 
 
@@ -521,9 +265,13 @@ def cycleUnion {ι : Type*} {B : ι → Scheme} (f : (i : ι) → AlgebraicCycle
         --refine type_eq_of_heq ?_
 
         sorry
+
       --rw[this]
+
       this ▸ (fun ⟨i, z⟩ ↦ (f i) z)
-    locfin := sorry
+
+    supportWithinDomain' := by simp
+    supportLocallyFiniteWithinDomain' := sorry
 
 
 noncomputable
