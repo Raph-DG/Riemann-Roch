@@ -3,26 +3,9 @@ Copyright (c) 2025 Raphael Douglas Giles. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Raphael Douglas Giles
 -/
-/-
-import Mathlib.Order.KrullDimension
-import Mathlib.Order.JordanHolder
-import Mathlib.Topology.KrullDimension
-import Mathlib.AlgebraicGeometry.Scheme
-import Mathlib.AlgebraicGeometry.Morphisms.ClosedImmersion
-import Mathlib.GroupTheory.FreeAbelianGroup
-import Mathlib.CategoryTheory.Category.Basic
-import Mathlib.CategoryTheory.Iso
-import Mathlib.Algebra.Homology.ShortComplex.Basic
-import Mathlib.Order.Hom.Basic
-import Mathlib.Algebra.Category.ModuleCat.Basic
-import Mathlib.Algebra.Homology.ShortComplex.ShortExact
-import Mathlib.Algebra.Homology.ShortComplex.ModuleCat
-import Mathlib.AlgebraicGeometry.Properties
-import Mathlib.RingTheory.FiniteLength
-import Mathlib.Order.ConditionallyCompleteLattice.Group
-import Mathlib.Order.Defs.Unbundled
--/
+
 import Mathlib
+import Mathlib.Tactic.MinImports
 
 /-!
 # Trimmed Length
@@ -38,50 +21,17 @@ in rs.
 
 ## Theorems
 
-The main theorem is given a short exact sequece
+The main theorem is given a short exact sequece ...(FINISH)
 
 -/
 
-open AlgebraicGeometry
-open CategoryTheory
-open Opposite.op
-open Module
+
+
+
+
 open Order
-open Ring
 
-
-variable {R : Type*}
-          [Ring R]
-          {M M' : Type*}
-          [AddCommGroup M]
-          [AddCommGroup M']
-          [Module R M]
-          [Module R M']
-
-
-variable (R M) in
-open Classical in
-/--
-The length of a module M is defined to be the supremum of lengths of chains of submodules of M. We
-define this using the existing krull dimension api, and as a result this takes values in
-WithBot ℕ∞ in spite of the fact that there is no module with length equal to ⊥.
--/
-noncomputable
-def Module.length : WithBot ℕ∞ := krullDim (α := Submodule R M)
-
-
-variable {α : Type*} [PartialOrder α] [DecidableEq α]
-  [DecidableRel (α := α) (· ≤ ·)] (rs : RelSeries (α := α) (· ≤ ·))
-
-/--
-Given (rs : RelSeries (α := α) (· ≤ ·)), rs.trimmedLength measures the number of `<`s appearing
-in rs defined as the image of the underlying function of rs, rs.toFun.
--/
-def RelSeries.trimmedLength (rs : RelSeries (α := α) (· ≤ ·)) : ℕ :=
-  (Finset.image rs.toFun Finset.univ).card - 1
-
-
-omit [DecidableEq α] [DecidableRel (α := α) (· ≤ ·)] [PartialOrder α] in
+variable {α : Type*}
 /--
 Given a relseries rs : RelSeries (α := α) r with transitive and reflixive r, i ≤ j implies
 r (rs i) (rs j)
@@ -96,18 +46,195 @@ theorem RelSeries.map_le {r : Rel α α} [IsTrans α r] [IsRefl α r] (rs : RelS
       rw[h]
       apply refl (r := r)
 
+variable [PartialOrder α] [DecidableEq α]
+  (rs : RelSeries (α := α) (· ≤ ·))
+
+/--
+Given (rs : RelSeries (α := α) (· ≤ ·)), rs.trimmedLength measures the number of `<`s appearing
+in rs defined as the image of the underlying function of rs, rs.toFun.
+-/
+def RelSeries.trimmedLength (rs : RelSeries (α := α) (· ≤ ·)) : ℕ :=
+  (Finset.image rs.toFun Finset.univ).card - 1
+
+
+lemma RelSeries.trimmedLength_le_length : rs.trimmedLength ≤ rs.length := by
+  simp only [RelSeries.trimmedLength, tsub_le_iff_right]
+  have := Finset.card_image_le (f := rs.toFun) (s := .univ)
+  simp only [Finset.card_univ, Fintype.card_fin] at this
+  exact this
+
+
+
+lemma RelSeries.length_eq_trimmedLength_iff : rs.length = rs.trimmedLength ↔ rs.toFun.Injective := by
+  constructor
+  · intro h
+    simp[RelSeries.trimmedLength] at h
+    have := Finset.card_image_iff (s := .univ) (f := rs.toFun)
+    simp_all only [Finset.card_univ, Finset.one_le_card, Finset.image_nonempty, Finset.univ_nonempty,
+      Nat.sub_add_cancel, Fintype.card_fin, Finset.coe_univ, true_iff]
+    exact fun ⦃a₁ a₂⦄ ↦ this trivial trivial
+  · intro h
+    apply antisymm (r := (· ≤ ·))
+    · have := Finset.card_le_card_of_injOn (s := .univ) (t := Finset.image rs.toFun Finset.univ)
+        rs.toFun (by simp) h.injOn
+      simp at this
+      simp[RelSeries.trimmedLength]
+      omega
+    · exact RelSeries.trimmedLength_le_length rs
+
+variable {rs} in
+/--
+If rs has length greater than 0, there must be some index i such that rs i.castSucc < rs i.succ
+-/
+theorem RelSeries.trimmedLength_exists_le
+(hrs : rs.trimmedLength > 0) : ∃ (i : Fin rs.length), rs i.castSucc < rs i.succ := by
+  contrapose! hrs
+  replace hrs (i : Fin rs.length) : rs.toFun i.castSucc = rs.toFun i.succ :=
+    eq_of_le_of_not_lt (rs.step i) (hrs i)
+  have H (i) : rs i = rs 0 := by
+    induction' i using Fin.induction with m ih
+    · rfl
+    · rwa [← hrs m]
+  unfold RelSeries.trimmedLength
+  suffices Finset.image rs.toFun Finset.univ = {rs.toFun 0} by simp [this]
+  suffices rs.toFun = fun i ↦ rs.toFun 0 by
+    rw[this, Finset.image_const]
+    use 0
+    simp
+  ext : 1
+  apply H
+
+
+variable {rs} in
+/--
+If the last two elements of rs are equal, then rs.trimmedLength = rs.eraseLast.trimmedLength. Note
+that if rs only has one element, the "last two elements" are both just the unique element of rs.
+-/
+theorem RelSeries.trimmedLength_eraseLast_of_eq
+  (lasteq : ∃ i : Fin (rs.length), rs.toFun i.castSucc = rs.toFun i.succ ∧ (i + 1 : ℕ) = rs.length)
+  : rs.trimmedLength = rs.eraseLast.trimmedLength := by
+    simp only [trimmedLength, eraseLast_length]
+    congr 2
+    -- start of experiment
+    apply le_antisymm
+    · intro x hx
+      simp only [Finset.mem_image, Finset.mem_univ, eraseLast_toFun, true_and] at hx ⊢
+      obtain ⟨i, rfl⟩ := hx
+      by_cases hi : i = Fin.last _
+      · obtain ⟨j, hj1, hj2⟩ := lasteq
+        use j.cast (m := rs.length - 1 + 1) (by omega)
+        subst i
+        convert hj1 using 2
+        ext
+        exact hj2.symm
+      · use (i.castPred hi).cast (m := rs.length - 1 + 1) (by omega)
+        rfl
+    · intro x hx
+      simp only [Finset.mem_image, Finset.mem_univ, eraseLast_toFun, true_and] at hx ⊢
+      obtain ⟨i, rfl⟩ := hx
+      exact ⟨_, rfl⟩
+
+
+variable {rs} in
+/--
+If the last two elements a, b of rs satisfy a < b, then
+rs.trimmedLength = rs.eraseLast.trimmedLength. Note that if rs only has one element,
+the "last two elements" are both just the unique element of rs.
+In this case the condition is vacuous.
+-/
+theorem RelSeries.trimmedLength_eraseLast_of_lt
+    (lastlt : ∃ i : Fin (rs.length), rs i.castSucc < rs i.succ ∧ (i + 1:ℕ) = rs.length)
+    : rs.trimmedLength = rs.eraseLast.trimmedLength + 1 := by
+      simp only [trimmedLength, eraseLast_length, Finset.one_le_card, Finset.image_nonempty,
+        Finset.univ_nonempty, Nat.sub_add_cancel]
+      obtain ⟨i, hi1, hi2⟩ := lastlt
+      suffices (Finset.image rs.toFun Finset.univ).card =
+               (Finset.image rs.eraseLast.toFun Finset.univ ∪ {rs.toFun i.succ}).card by
+        simp_all only [eraseLast_length]
+        rw[Finset.card_union_of_disjoint]
+        · simp
+        · simp only [Finset.disjoint_singleton_right, Finset.mem_image, Finset.mem_univ,
+          eraseLast_toFun, true_and, not_exists]
+          intro x
+          suffices rs.toFun ⟨↑x, by omega⟩ < rs.toFun i.succ by exact ne_of_lt this
+          apply LT.lt.trans_le' (b := rs.toFun i.castSucc)
+          · exact hi1
+          · apply rs.map_le
+            apply Fin.mk_le_of_le_val
+            simp only [Fin.coe_castSucc]; omega
+      congr
+      apply le_antisymm
+      · intro x hx
+        simp only [Finset.mem_image, Finset.mem_univ, eraseLast_toFun, true_and] at hx ⊢
+        obtain ⟨j, rfl⟩ := hx
+        by_cases hj : j = i.succ
+        · simp only [eraseLast_length, Finset.mem_union, Finset.mem_image, Finset.mem_univ,
+          eraseLast_toFun, true_and, Finset.mem_singleton]
+          apply Or.inr
+          rw[hj]
+        · simp only [eraseLast_length, Finset.mem_union, Finset.mem_image, Finset.mem_univ,
+          eraseLast_toFun, true_and, Finset.mem_singleton]
+          apply Or.inl
+          have hj' : j ≠ Fin.last rs.length := by
+            have : i.succ = Fin.last _ := by
+              exact Eq.symm (Fin.eq_of_val_eq (id (Eq.symm hi2)))
+            rw[← this]
+            exact hj
+          use (j.castPred hj').cast (m := rs.length - 1 + 1) (by omega)
+          rfl
+      · intro x hx
+        simp only [eraseLast_length, Finset.mem_union, Finset.mem_image, Finset.mem_univ,
+          eraseLast_toFun, true_and, Finset.mem_singleton] at hx
+        obtain h | h := hx
+        · simp only [Finset.mem_image, Finset.mem_univ, eraseLast_toFun, true_and] at h ⊢
+          obtain ⟨i, rfl⟩ := h
+          exact ⟨_, rfl⟩
+        · simp[h]
+
+
+/--
+The trimmed length of rs.eraseLast is less than or equal to the trimmed length of rs
+-/
+theorem RelSeries.trimmedLength_eraseLast_le :
+  rs.eraseLast.trimmedLength ≤ rs.trimmedLength := by
+    by_cases h : ∃ i : Fin rs.length, rs.toFun i.castSucc = rs.toFun i.succ ∧ ↑i + 1 = rs.length
+    · exact Nat.le_of_eq (id (Eq.symm (rs.trimmedLength_eraseLast_of_eq h)))
+    · by_cases nontriv : rs.length = 0
+      · simp_all only [AddLeftCancelMonoid.add_eq_zero, one_ne_zero, and_false, exists_false,
+        not_false_eq_true]
+        have : rs.eraseLast = rs := by aesop
+        exact Nat.le_of_eq (congrArg trimmedLength this)
+      have : ∃ i : Fin rs.length, rs.toFun i.castSucc < rs.toFun i.succ ∧ ↑i + 1 = rs.length := by
+        simp_all only [not_exists, not_and]
+        let secondlast : Fin rs.length := ⟨rs.length - 1, by omega⟩
+        use secondlast
+        specialize h secondlast
+        have neq : rs secondlast.succ ≠ rs secondlast.castSucc := by
+          contrapose h
+          simp_all only [ne_eq, Decidable.not_not, forall_const]
+          have : ↑secondlast = rs.length - 1 := rfl
+          omega
+        have := rs.step secondlast
+        constructor
+        · apply lt_of_le_of_ne
+          · exact this
+          · exact id (Ne.symm neq)
+        · exact Nat.succ_pred_eq_of_ne_zero nontriv
+      have := rs.trimmedLength_eraseLast_of_lt this
+      omega
+
+variable [DecidableRel (α := α) (· ≤ ·)]
 
 instance (rs : RelSeries (α := α) (· ≤ ·)) :
   LinearOrder { x // x ∈ Finset.image rs.toFun Finset.univ } where
     __ := Subtype.partialOrder _
     le_total := by
       rintro ⟨a, ha⟩ ⟨b, hb⟩
-      simp at ha hb
+      simp only [Finset.mem_image, Finset.mem_univ, true_and] at ha hb
       obtain ⟨i, rfl⟩ := ha
       obtain ⟨j, rfl⟩ := hb
       simp only [Subtype.mk_le_mk]
-      apply (le_total i j).imp
-      all_goals intro lt; exact RelSeries.map_le rs lt
+      exact (le_total i j).imp (RelSeries.map_le rs) (RelSeries.map_le rs)
     decidableLE := inferInstance
 
 /--
@@ -131,85 +258,42 @@ lemma RelSeries.length_trim (rs : RelSeries (α := α) (· ≤ ·)) :
   rs.trim.length = rs.trimmedLength := by
     simp[trim]
 
-open Classical in
-/--
-The length of a module is greater than or equal to the trimmedLength of any
-rs : RelSeries (α := Submodule R M) (· ≤ ·).
--/
-theorem RelSeries.moduleLength_ge_trimmedLength
-(rs : RelSeries (α := Submodule R M) (· ≤ ·))
-  : RelSeries.trimmedLength rs ≤ Module.length R M := by
-  rw[← rs.length_trim]
-  rw[Module.length, krullDim]
-  exact le_iSup_iff.mpr fun b a ↦ a rs.trim
-
-/-
-We want to use this for both eq and neq, so we should generalise to a situation where we just have
-a general transitive relation. The thing is, as stated this won't work since we're using the fact
-that = is an equivalence relation, because our rhs can flip the direction of the = and allows j to be
-equal to i.
--/
-omit [DecidableRel (α := α) (· ≤ ·)] in
-lemma pairwiseToFull {n : ℕ} (tf : Fin (n+1) → α) :
-  (∀ (i : Fin n), tf i.castSucc = tf i.succ) ↔ ∀ (i j : Fin (n+1)), tf i = tf j := by
-    constructor
-    · intro h j k
-      induction' j using Fin.induction with m ih
-      · induction' k using Fin.induction with m ih
-        · rfl
-        · specialize h m
-          rwa[← h]
-      · specialize h m
-        rwa[←h]
-    · intro h i
-      exact h i.castSucc i.succ
-
-/-
-Unfortunately I think something like the following is necessary for a proper refactor
-but who has the energy
-
-lemma pairwiseToFull' {n : ℕ} {r : Rel α α} [IsTrans α r] (tf : Fin (n+1) → α) :
-  (∀ (i : Fin n), r (tf i.castSucc) (tf i.succ)) ↔ ∀ (i j : Fin (n+1)), i < j → r (tf i) (tf j) := by
-    constructor
-    · intro h j k
-      induction' j using Fin.induction with m ih
-      · induction' o : k using Fin.induction with m ih generalizing k
-        · intro l; contradiction
-        · specialize h m
-          intro l
-          specialize ih m.castSucc rfl
-          rwa[← h]
-      · specialize h m
-        rwa[←h]
-    · intro h i
-      exact h i.castSucc i.succ-/
 
 
-omit [DecidableRel (α := α) (· ≤ ·)] in
-lemma RelSeries.trimmedLength_le_length : rs.trimmedLength ≤ rs.length := by
-  simp only [RelSeries.trimmedLength, tsub_le_iff_right]
-  have := Finset.card_image_le (f := rs.toFun) (s := .univ)
-  simp only [Finset.card_univ, Fintype.card_fin] at this
-  exact this
+lemma Finset.univ_eq_setOf_lt_last_union_singleton_last (n : ℕ) :
+  (Finset.univ : Finset (Fin (n + 1))) = {i : Fin (n + 1) | i < Fin.last n} ∪ {Fin.last n} := by
+  ext a
+  simp
+  by_cases ha : a = Fin.last n
+  · exact Or.inl ha
+  · exact Or.inr <| Fin.val_lt_last ha
 
-
-omit [DecidableRel (α := α) (· ≤ ·)] in
-lemma RelSeries.length_eq_trimmedLength_iff : rs.length = rs.trimmedLength ↔ rs.toFun.Injective := by
-  constructor
-  · intro h
-    simp[RelSeries.trimmedLength] at h
-    have := Finset.card_image_iff (s := .univ) (f := rs.toFun)
-    simp_all only [Finset.card_univ, Finset.one_le_card, Finset.image_nonempty, Finset.univ_nonempty,
-      Nat.sub_add_cancel, Fintype.card_fin, Finset.coe_univ, true_iff]
-    exact fun ⦃a₁ a₂⦄ ↦ this trivial trivial
-  · intro h
-    apply antisymm (r := (· ≤ ·))
-    · have := Finset.card_le_card_of_injOn (s := .univ) (t := Finset.image rs.toFun Finset.univ)
-        rs.toFun (by simp) h.injOn
-      simp at this
-      simp[RelSeries.trimmedLength]
+lemma Finset.baz (n : ℕ) :
+    (Finset.univ : Finset (Fin (n + 1))) =
+    Finset.image (Fin.castLE (n := n - 1 + 1)
+    (by omega)) Finset.univ ∪ {Fin.last _} := by
+  have := Finset.univ_eq_setOf_lt_last_union_singleton_last n
+  simp_all only [Finset.coe_univ, Set.union_singleton]
+  ext a
+  simp[Finset.eq_univ_iff_forall]
+  by_cases ha : a = Fin.last n
+  · exact Or.inr ha
+  · apply Or.inl
+    have ha2 : a.val < n - 1 + 1 := by
+      have ha3 : a.val < n + 1 := a.2
+      have : a.val ≠ n := by
+        rw[← Fin.val_eq_val] at ha
+        exact ha
       omega
-    · exact RelSeries.trimmedLength_le_length rs
+    let a' : Fin (n - 1 + 1) := ⟨a, ha2⟩
+    use a'
+    apply Fin.eq_of_val_eq
+    rfl
+
+
+
+
+
 
 
 /-
@@ -249,160 +333,36 @@ theorem RelSeries.trimmedLength_exists_eq
     · apply hrs
 
 
-omit [DecidableRel (α := α) (· ≤ ·)] in
-variable {rs} in
+
+
+variable {R : Type*}
+          [Ring R]
+          {M M' : Type*}
+          [AddCommGroup M]
+          [AddCommGroup M']
+          [Module R M]
+          [Module R M']
+
+
+variable (R M) in
+open Classical in
 /--
-If rs has length greater than 0, there must be some index i such that rs i.castSucc < rs i.succ
+The length of a module M is defined to be the supremum of lengths of chains of submodules of M. We
+define this using the existing krull dimension api, and as a result this takes values in
+WithBot ℕ∞ in spite of the fact that there is no module with length equal to ⊥.
 -/
-theorem RelSeries.trimmedLength_exists_le
-(hrs : rs.trimmedLength > 0) : ∃ (i : Fin rs.length), rs i.castSucc < rs i.succ := by
-  contrapose! hrs
-  have hrs' : ∀ (i : Fin rs.length), rs.toFun i.castSucc = rs.toFun i.succ := by
-   intro j
-   apply eq_of_le_of_not_lt
-   · exact rs.step j
-   · exact hrs j
-
-  rw[pairwiseToFull] at hrs'
-  suffices ∀ i, rs i = rs 0 by
-    unfold RelSeries.trimmedLength
-    suffices Finset.image rs.toFun Finset.univ = {rs.toFun 0} by simp[this]
-    suffices rs.toFun = fun i ↦ rs.toFun 0 by
-      rw[this, Finset.image_const]
-      use 0
-      simp
-    ext:1
-    apply this
-  intro i
-  exact hrs' i 0
+noncomputable
+def Module.length : WithBot ℕ∞ := krullDim (α := Submodule R M)
 
 
-
-
-lemma Finset.univ_eq (n : ℕ) :
-  (Finset.univ : Finset (Fin (n + 1))) = {i : Fin (n + 1) | ↑i < n} ∪ {Fin.last n} := by
-  ext a
-  simp
-  by_cases ha : a = Fin.last n
-  · exact Or.inl ha
-  · exact Or.inr <| Fin.val_lt_last ha
-
-lemma Finset.baz (n : ℕ) :(Finset.univ : Finset (Fin (n + 1))) =
-    Finset.image (Fin.castLE (n := n - 1 + 1)
-    (by omega)) Finset.univ ∪ {Fin.last _} := by
-  suffices m : (Finset.univ : Finset (Fin (n + 1))) =
-               {i : Fin (n + 1) | ↑i < n} ∪ {Fin.last n} by
-    simp_all only [Finset.coe_univ, Set.union_singleton]
-    ext a
-    simp[Finset.eq_univ_iff_forall]
-    by_cases ha : a = Fin.last n
-    · exact Or.inr ha
-    · apply Or.inl
-      have ha2 : a.val < n - 1 + 1 := by
-        have ha3 : a.val < n + 1 := a.2
-        have : a.val ≠ n := by
-          rw[← Fin.val_eq_val] at ha
-          exact ha
-        omega
-      let a' : Fin (n - 1 + 1) := ⟨a, ha2⟩
-      use a'
-      apply Fin.eq_of_val_eq
-      simp
-  exact Finset.univ_eq n
-
-
-
-omit [DecidableRel (α := α) (· ≤ ·)] in
-variable {rs} in
+open Classical in
 /--
-If the last two elements of rs are equal, then rs.trimmedLength = rs.eraseLast.trimmedLength. Note
-that if rs only has one element, the "last two elements" are both just the unique element of rs.
+The length of a module is greater than or equal to the trimmedLength of any
+rs : RelSeries (α := Submodule R M) (· ≤ ·).
 -/
-theorem RelSeries.trimmedLength_eraseLast_of_eq
-  (lasteq : ∃ i : Fin (rs.length), rs.toFun i.castSucc = rs.toFun i.succ ∧ (i + 1:ℕ) = rs.length)
-  : rs.trimmedLength = rs.eraseLast.trimmedLength := by
-    simp only [trimmedLength, eraseLast_length]
-    congr 2
-    rw[Finset.baz, Finset.image_union, Finset.image_singleton,
-     Finset.image_image, Finset.union_eq_left.mpr]
-    · rfl
-    · simp only [Finset.singleton_subset_iff, Finset.mem_image, Finset.mem_univ,
-      Function.comp_apply, true_and]
-      obtain ⟨i, hi⟩ := lasteq
-      use i
-      have : (Fin.castLE (n := rs.length - 1 + 1) (by omega) ↑↑i) = i.castSucc := by
-        apply Fin.eq_of_val_eq
-        simp only [Fin.coe_castLE, Fin.val_natCast, Fin.coe_castSucc, Nat.mod_succ_eq_iff_lt,
-          Nat.succ_eq_add_one]
-        omega
-      rw[this]
-      have : Fin.last rs.length = i.succ := by aesop
-      rw[this]
-      exact hi.1
-
-omit [DecidableRel (α := α) (· ≤ ·)] in
-variable {rs} in
-/--
-If the last two elements a, b of rs satisfy a < b, then
-rs.trimmedLength = rs.eraseLast.trimmedLength. Note that if rs only has one element,
-the "last two elements" are both just the unique element of rs.
-In this case the condition is vacuous.
--/
-theorem RelSeries.trimmedLength_eraseLast_of_lt
-    (lastlt : ∃ i : Fin (rs.length), rs i.castSucc < rs i.succ ∧ (i + 1:ℕ) = rs.length)
-    : rs.trimmedLength = rs.eraseLast.trimmedLength + 1 := by
-      simp only [trimmedLength, eraseLast_length, Finset.one_le_card, Finset.image_nonempty,
-        Finset.univ_nonempty, Nat.sub_add_cancel]
-      rw[Finset.baz, Finset.image_union, Finset.image_singleton,
-        Finset.image_image, Finset.card_union_of_disjoint, Finset.card_singleton]
-      · rfl
-      · simp only [Finset.disjoint_singleton_right, Finset.mem_image, Finset.mem_univ,
-        Function.comp_apply, true_and, not_exists]
-        intro i
-        apply ne_of_lt
-        obtain ⟨j, hj⟩ := lastlt
-        have h₂ : rs (@Fin.castLE (rs.length - 1 + 1) (rs.length + 1) (by omega) i) ≤
-                  rs j.castSucc := by
-          apply RelSeries.map_le
-          apply Fin.mk_le_of_le_val
-          have h1 : i.val ≤ rs.length - 1  := by omega
-          have h2 : j.val = rs.length - 1 := by omega
-          simpa[← h2] using h1
-
-        apply lt_of_le_of_lt (b := rs j.castSucc)
-        exact h₂
-        have : j.succ = Fin.last rs.length := by aesop
-        rw[← this]
-        exact hj.1
-
-
-omit [DecidableRel (α := α) (· ≤ ·)] in
-/--
-The trimmed length of rs.eraseLast is less than or equal to the trimmed length of rs
--/
-theorem RelSeries.trimmedLength_eraseLast_le :
-  rs.eraseLast.trimmedLength ≤ rs.trimmedLength := by
-    by_cases h : ∃ i : Fin rs.length, rs.toFun i.castSucc = rs.toFun i.succ ∧ ↑i + 1 = rs.length
-    · exact Nat.le_of_eq (id (Eq.symm (rs.trimmedLength_eraseLast_of_eq h)))
-    · by_cases nontriv : rs.length = 0
-      · simp_all only [AddLeftCancelMonoid.add_eq_zero, one_ne_zero, and_false, exists_false,
-        not_false_eq_true]
-        have : rs.eraseLast = rs := by aesop
-        exact Nat.le_of_eq (congrArg trimmedLength this)
-      have : ∃ i : Fin rs.length, rs.toFun i.castSucc < rs.toFun i.succ ∧ ↑i + 1 = rs.length := by
-        simp_all only [not_exists, not_and]
-        let secondlast : Fin rs.length := ⟨rs.length - 1, by omega⟩
-        use secondlast
-        specialize h secondlast
-        have neq : rs secondlast.succ ≠ rs secondlast.castSucc := by
-          contrapose h
-          simp_all only [ne_eq, Decidable.not_not, forall_const]
-          omega
-        have := rs.step secondlast
-        constructor
-        · apply lt_of_le_of_ne
-          · exact this
-          · exact id (Ne.symm neq)
-        · exact Nat.succ_pred_eq_of_ne_zero nontriv
-      have := rs.trimmedLength_eraseLast_of_lt this
-      omega
+theorem RelSeries.moduleLength_ge_trimmedLength
+(rs : RelSeries (α := Submodule R M) (· ≤ ·))
+  : RelSeries.trimmedLength rs ≤ Module.length R M := by
+  rw[← rs.length_trim]
+  rw[Module.length, krullDim]
+  exact le_iSup_iff.mpr fun b a ↦ a rs.trim
