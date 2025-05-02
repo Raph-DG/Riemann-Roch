@@ -22,7 +22,7 @@ variable (R : Type v)
 
 class TopologicalSpace.dimensionFunction {Z : Type*} [TopologicalSpace Z] (δ : Z → ℤ) where
   increase : ∀ x y : Z, x ⤳ y ∧ x ≠ y → δ (x) > δ (y)
-  step : ∀ x y : Z, @CovBy Z (specializationPreorder Z).toLT x y
+  step : ∀ x y : Z, @CovBy Z (specializationPreorder Z).toLT x y → δ x = δ y + 1
 
 
 

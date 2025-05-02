@@ -6,6 +6,50 @@
 % the current file can be a simple sequence of \input. Otherwise It
 % can start with a \section or \chapter for instance.
 
+\begin{definition}[Dimension Function]
+  \label{def:dimfun}
+  A dimension function on a scheme $X$ is defined to be function $\delta : X \rightarrow \mathbb{Z}$
+  satisfying such that if $y : X$ is an immediate specialisation of $x : X$, then
+  $\delta(x) = \delta(y) + 1$, and $\delta$ is monotone with respect to the
+  specialisation order.
+
+  HANDLED BY FORMAL METHODS STUDENTS
+\end{definition}
+
+\begin{definition}[Catenary Space]
+  We say a space is catenary if between every pair of irreducible closed subsets there
+  exists a maximal chain of irreducible closed subsets, and all such chains have the
+  same length.
+
+  HANDLED BY FORMAL MATHODS CLASS
+\end{definition}
+
+\begin{definition}[Universally Catenary Scheme]
+  \label{02J7}
+  We say a scheme $S$ is universally catenary if, every scheme $X$ with a morhphism
+  $X \rightarrow S$ locally of finite type is catenary.
+\end{definition}
+
+From now, let $(S, \delta)$ denote a locally Noetherian universally catenary scheme
+with dimension funtion $\delta$.
+
+
+
+\begin{theorem}[Lifting of dimension functions]
+  \label{02JW}
+  Let $f:X \rightarrow S$ be a morphism of schemes.
+  Assume $f$ locally of finite type. Then the map
+  \[
+  \begin{split}
+  \delta_{X / S} &X \rightarrow \mathbb{Z}\\
+  &x \mapsto \delta (f (x)) + \text{trdeg}_{\kappa(f(x))} \kappa (x)
+  \end{split}
+  \]
+  where $\kappa(x)$ denotes the residue field at $x$.
+
+\end{theorem}
+
+
 \begin{definition}[Algebraic Cycle on a sheme]
   \label{def:algcycle}
   \leanok
@@ -14,7 +58,14 @@
   $X \rightarrow \mathbb{Z}$ with locally finite support.
 \end{definition}
 
+\begin{definition}[Pushforward of cycles]
+  \label{def:pushcycle}
+  \leanok
+  \lean{AlgebraicCycle.map}
 
+
+
+\end{definition}
 
 
 For the definitions about divisors, let $X$ be a noetherian integral scheme
