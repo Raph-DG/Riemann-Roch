@@ -43,7 +43,7 @@ open Ring
   theorem RelSeries.exists_ltSeries_ge_head_bot
   (rs : RelSeries (α := Submodule R M) (· < ·)) :
   ∃ xs : RelSeries (α := Submodule R M) (· < ·),
-  xs.length ≥ rs.length ∧ xs.head = ⊥ ∧ xs.last = rs.last := 
+  xs.length ≥ rs.length ∧ xs.head = ⊥ ∧ xs.last = rs.last :=
     Or.elim (em (rs.head = ⊥)) (by aesop)
     (by intro h; use cons rs ⊥ (by exact Ne.bot_lt' fun a ↦ h (id (Eq.symm a))); simp)
       #min_imports
@@ -51,8 +51,8 @@ open Ring
   theorem RelSeries.exists_ltSeries_le_last_top
   (rs : RelSeries (α := Submodule R M) (· < ·)) :
   ∃ xs : RelSeries (α := Submodule R M) (· < ·),
-  xs.length ≥ rs.length ∧ xs.last = ⊤ ∧ xs.head = rs.head := 
-    Or.elim (em (rs.last = ⊤)) (by aesop) 
+  xs.length ≥ rs.length ∧ xs.last = ⊤ ∧ xs.head = rs.head :=
+    Or.elim (em (rs.last = ⊤)) (by aesop)
     (by intro h; use snoc rs ⊤ (by exact Ne.lt_top' fun a ↦ h (id (Eq.symm a))); simp)
 
   /--
@@ -87,7 +87,7 @@ open Ring
           LinearMap.ker_intersection_mono_of_map_eq (rs.step i) (by aesop)
       rw[← CategoryTheory.ShortComplex.Exact.moduleCat_range_eq_ker hS.exact] at kernelInt
       apply Set.range_intersection_ssubset_iff_preimage_ssubset.mp kernelInt
-    
+
 
 
     theorem RelSeries.submodule_map_lt_of_comap_eq_exact

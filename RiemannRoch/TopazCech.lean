@@ -27,7 +27,9 @@ def TopCat.Presheaf.openImmersionFunctor (F : TopCat.Presheaf A X) :
 
 def AlgebraicGeometry.Scheme.OpenCover.toOpenOver (U : Scheme.OpenCover.{u} X) (j : U.J) :
     OpenOver X where
-  f := U.map j
+    f := U.map j
+    dom := U.obj j
+
 
 def Scheme.OpenCover.mapToOpenOver {U V : Scheme.OpenCover.{u} X} (e : U ⟶ V) (j : U.J) :
     U.toOpenOver j ⟶ V.toOpenOver (e.idx j) where
