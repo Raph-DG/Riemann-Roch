@@ -17,6 +17,7 @@
 \end{definition}
 
 \begin{definition}[Catenary Space]
+  \label{def:catenary}
   We say a space is catenary if between every pair of irreducible closed subsets there
   exists a maximal chain of irreducible closed subsets, and all such chains have the
   same length.
@@ -26,6 +27,7 @@
 
 \begin{definition}[Universally Catenary Scheme]
   \label{02J7}
+  \uses{def:catenary}
   We say a scheme $S$ is universally catenary if, every scheme $X$ with a morhphism
   $X \rightarrow S$ locally of finite type is catenary.
 \end{definition}
@@ -34,9 +36,10 @@ From now, let $(S, \delta)$ denote a locally Noetherian universally catenary sch
 with dimension funtion $\delta$.
 
 
-
 \begin{theorem}[Lifting of dimension functions]
   \label{02JW}
+  \uses{02J7}
+  \uses{def:dimfun}
   Let $f:X \rightarrow S$ be a morphism of schemes.
   Assume $f$ locally of finite type. Then the map
   \[
@@ -55,15 +58,162 @@ with dimension funtion $\delta$.
   \leanok
   \lean{AlgebraicCycle}
   An algebraic cycle on a scheme $X$ is defined to be a function from
-  $X \rightarrow \mathbb{Z}$ with locally finite support.
+  $X \rightarrow \mathbb{Z}$ with locally finite support. We denote the group of all
+  algebraic cycles on a scheme by $Z(X)$ (here, $Z(X)$ is not up to rational equivalence).
+
+  Note that the group structure is already defined on this, so I'll omit all of that stuff
+  from the blueprint.
+\end{definition}
+
+\begin{definition}[Grading of algebraic cycles by dimension]
+  \label{def:algcycleofdim}
+  \uses{def:algcycle}
+  Define the graded pieces of $Z(X)$ to be $Z_k(X)$, the cycles of $X$ where every point
+  in the support has dimension $k$.
 \end{definition}
 
 \begin{definition}[Pushforward of cycles]
   \label{def:pushcycle}
   \leanok
   \lean{AlgebraicCycle.map}
+  \uses{def:algcycle}
+  \uses{02JW}
+  Define the pushforward of a cycle on $X$ to a cycle $Y$ via a quasifinite morphism $f$. 
+  Note $X$ and $Y$ need dimension functions, and for some theorems we may want that they
+  are locally finite over $S$ (endowing them with canonical dimension functions).
+
+\end{definition}
+
+\begin{theorem}[Functoriality of the Pushforward]
+  \label{thm:pushfunc}
+  \uses{def:pushcycle}
+\end{theorem}
+
+\begin{definition}[Principal divisors]
+  \label{def:principaldivisor}
 
 
+  Given an integral scheme $X$ and an element $f : R(X)$, 
+  define the cycle $div(f)$ on $X$.
+\end{definition}
+
+\begin{definition}[Rational equivalence]
+  \label{def:rationalequivalence}
+  \uses{def:principaldivisor}
+  \uses{def:pushcycle}
+  Given cycles $D$ and $D'$ on $X$, we say $D$ is rationally equivalent to $D'$ if there
+  exists some locally finite family of integral closed subschemes $W_i : X$ with associated
+  closed immersions $\iota_i$ such that $D - D' = (\iota i)_* (div f_i)$ for $f_i$ rational
+  functions on $W_i$.
+\end{definition}
+
+\begin{lemma}[Rational equivalence is an equivalence]
+  \label{lem:ratequivisequiv}
+  \uses{def:rationalequivalence}
+  Rational equivalence is an equivalence relation
+\end{lemma}
+
+\begin{definition}[Chow Group graded piece]
+  \label{def:chowgroupgraded}
+  \uses{lem:ratequivisequiv}
+  \uses{def:algcycle}
+  Define the graded piece $CH_k(X)$ $X$ to be the quotient of $Z_k(X)$ by rational equivalence
+\end{definition}
+
+\begin{definition}[Chow group]
+  \label{def:chowgroup}
+  \uses{def:chowgroupgraded}
+  Define the chow group $CH(X)$ as the direct sum of the graded pieces. Alternatively,
+  could show that having constant dimension on the support of a cycle is invariant under
+  rational equivalence, then define this first and the graded pieces in the obvious way.
+  Will have to talk to someone about what the best way to do that is.
+\end{definition}
+
+\begin{definition}[Direct sum of sheaves of modules]
+  \label{def:directsumsheafmodules}
+  Define the direct sum of sheaves of modules (Probably depends on some things in its own right)
+\end{definition}
+
+\begin{definition}[Locally Free Sheaf]
+  \label{def:locallyfreesheaf}
+  \uses{def:directsumsheafmodules}
+  On a ringed space $(X, \reg_X)$, a sheaf of modules $\mathscr{F}$ is locally free if 
+  there exists some cover of $X$ on which $\mathscr{F}$ is isomorhpic to the $\oplus_n \reg_X$.
+
+  Of course, this will potentially not be defined by me (I think we could relatively easily
+  come up with a definition, but I think others are working on this somehow). 
+\end{definition}
+
+\begin{definition}[Rank of locally free sheaf]
+  \label{def:locallyfreerank}
+  \uses{deflocallyfreesheaf}
+  Define the rank of a locally free sheaf
+\end{definition}
+
+\begin{definition}[Invertible sheaf definition]
+  \label{def:invertiblesheaf}
+  \uses{def:locallyfreerank}
+  An invertible sheaf is a locally free sheaf of rank 1.
+\end{definition}
+
+\begin{definition}[Tensor product of sheaves of modules]
+  \label{def:sheaftensorproduct}
+  Definition of the tensor product of sheaves of modules on some ringed space.
+\end{definition}
+
+\begin{lemma}[Tensor product preserves isomorphism]
+  \label{lem:tensorpreservesiso}
+  If $L, L'$ and $K, K'$ are two isomorhpic pairs of line bundles, $L \otimes K \cong L' \cong K'$. 
+
+  This should really just follow from functoriality so we should probably just do that,
+  still I imagine somebody else will get to this by the time I'm thinking about how this
+  should be set up.
+\end{lemma}
+
+\begin{lemma}[Invertible sheaves are invertible]
+  \label{lem:invertiblesheavesinvertible}
+  \uses{def:sheaftensorproduct}
+  Invertible sheaves are invertible w.r.t the tensor product over $\reg_X$
+\end{lemma}
+
+\begin{definition}[Picard Group]
+  \label{def:picardgroup}
+  Definition of the group structure on invertible sheaves given by the tensor product.
+\end{definition}
+
+
+\begin{definition}[Sheaf of total quotient rings]
+  \label{def:sheafoftotalquotientrings}
+\end{definition}
+
+\begin{definition}[Rational section of a line bundle]
+  \label{def:rationalsection}
+  \uses{def:sheafoftotalquotientrings}
+\end{definition}
+
+\begin{definition}[Divisor of a rational section of a line bundle]
+  \label{def:divisorofrationalsection}
+  \uses{def:rationalsection}
+\end{definition}
+
+
+\begin{theorem}[Divisor of any section same up to rational equivalence]
+  \label{thm:sectiondivisorrational}
+  \uses{def:divisorofrationalsection}
+  Given two rational sections of a line bundle, their associated divisors are linearly equivalent
+\end{theorem}
+
+\begin{definition}[The first Chern class]
+  \label{def:firstchernclass}
+  \uses{def:invertiblesheaf}
+  \uses{def:divisorofrationalsection}
+  \uses{thm:sectiondivisorrational}
+  Define the first chern class of a line bundle (of course, this is just a repackaging
+  of the previous theorem if there is some section, otherwise we need the support of 
+  a rational section). This is well defined up to rational equivalence.
+\end{definition}
+
+\begin{definition}[The map from $Pic(X)$ to $CH_{n-1}(x)$]
 
 \end{definition}
 

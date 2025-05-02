@@ -213,7 +213,7 @@ def mapAux {Y : Scheme} (δₓ : X → ℤ) [dimensionFunction δₓ]
 --set_option profiler true
 
 
-def test {Y : Scheme} (δₓ : X → ℤ) [dimensionFunction δₓ] (δy : Y → ℤ) [dimensionFunction δy]
+lemma map_locally_finite {Y : Scheme} (δₓ : X → ℤ) [dimensionFunction δₓ] (δy : Y → ℤ) [dimensionFunction δy]
   (f : X ⟶ Y) [qc : QuasiCompact f] (c : AlgebraicCycle X) :
   ∀ z ∈ (⊤ : Set Y), ∃ t ∈ 𝓝 z, (t ∩ Function.support fun z ↦
   ∑ x ∈ (preimageSupportFinite f c z).toFinset, (c x) * mapAux δₓ δy f x).Finite := by
@@ -377,7 +377,7 @@ def map {Y : Scheme} (δₓ : X → ℤ) [dimensionFunction δₓ] (δy : Y → 
   (f : X ⟶ Y) [qc : QuasiCompact f] (c : AlgebraicCycle X) : AlgebraicCycle Y where
   toFun z := (∑ x ∈ (preimageSupportFinite f c z).toFinset, (c x) * mapAux δₓ δy f x)
   supportWithinDomain' := by simp
-  supportLocallyFiniteWithinDomain' := fun z a ↦ test δₓ δy f c z a
+  supportLocallyFiniteWithinDomain' := fun z a ↦ map_locally_finite δₓ δy f c z a
 
 lemma ext (c : AlgebraicCycle X) (c' : AlgebraicCycle X) : c = c' ↔ c.toFun = c'.toFun := by
   rw[Function.locallyFinsuppWithin.ext_iff]
@@ -397,10 +397,41 @@ lemma map_id (δₓ : X → ℤ) [dimensionFunction δₓ] (c : AlgebraicCycle X
     map δₓ δₓ (𝟙 X) c = c := by
    rw[ext]
    ext z
-   have : {z} = (preimageSupportFinite (𝟙 X) c z).toFinset := by
-    --#check CategoryStruct.comp
-    sorry
-   simp[map, mapAux]
+   have : (c z ≠ 0 ∧ (preimageSupportFinite (𝟙 X) c z).toFinset = {z}) ∨ (c z = 0 ∧ (preimageSupportFinite (𝟙 X) c z).toFinset = ∅) := by
+    simp[preimageSupportFinite, preimageSupport, Finite.toFinset]
+    by_cases o : c z = 0
+    · exact Or.inr o
+    · apply Or.inl
+      refine ⟨o, ?_⟩
+      ext a
+      simp
+      intro h
+      rw[h]
+      exact o
+   obtain h | h := this
+   · simp[map, mapAux]
+     rw[h.2]
+     simp[Hom.degree]
+     have : c z = c.toFun z := rfl
+     rw[← this]
+     have := h.1
+     rw[@mul_right_eq_self₀]
+     have := (finrank_self (IsLocalRing.ResidueField ↑(X.presheaf.stalk z)))
+     apply Or.inl
+     rw [@Nat.cast_eq_one]
+     /-
+     This is so dumb
+     -/
+
+
+     /-suffices (finrank (IsLocalRing.ResidueField ↑(X.presheaf.stalk z)) (IsLocalRing.ResidueField ↑(X.presheaf.stalk z)) : ℕ) = (1 : ℕ) ∨ c z = 0 by
+      rw[@mul_right_eq_self₀]-/
+
+
+     sorry
+   · sorry
+
+   /-simp[map, mapAux]
    rw[← this]
    simp[Hom.degree]
    have : c z = c.toFun z := rfl
@@ -410,7 +441,7 @@ lemma map_id (δₓ : X → ℤ) [dimensionFunction δₓ] (c : AlgebraicCycle X
     rw[@mul_right_eq_self₀]
     sorry
 
-   exact Or.inl (finrank_self (IsLocalRing.ResidueField ↑(X.presheaf.stalk z)))
+   exact Or.inl (finrank_self (IsLocalRing.ResidueField ↑(X.presheaf.stalk z)))-/
 
 lemma map_comp {Y Z : Scheme} (δₓ : X → ℤ) [dimensionFunction δₓ] (δy : Y → ℤ) [dimensionFunction δy]
   (δz : Z → ℤ) [dimensionFunction δz]
@@ -418,6 +449,7 @@ lemma map_comp {Y Z : Scheme} (δₓ : X → ℤ) [dimensionFunction δₓ] (δy
   (c : AlgebraicCycle X) (c' : AlgebraicCycle Y) : map δy δz g (map δₓ δy f c) = map δₓ δz (f ≫ g) c := by
   simp[ext, map, mapAux]
   ext a
+
 
 
   /-
@@ -927,7 +959,7 @@ noncomputable
     supportWithinDomain' := by simp
     supportLocallyFiniteWithinDomain' := by
       intro z hz
-      let fino (i : ι) := test (δ i) δₓ (W i) (div (f i) (hf i)) --(f i)
+      let fino (i : ι) := map_locally_finite (δ i) δₓ (W i) (div (f i) (hf i)) --(f i)
       let un := ⋃ (i : (singletonFinite B δₓ δ hB hB' W f hf hW z).toFinset), (fino i z hz).choose
       #check Exists.choose_spec
       /-
