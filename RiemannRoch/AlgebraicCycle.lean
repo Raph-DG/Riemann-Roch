@@ -196,6 +196,11 @@ def _root_.AlgebraicGeometry.LocallyRingedSpace.Hom.degree {X Y : Scheme} (f : X
     (by infer_instance)
     (by have := RingHom.toAlgebra (f.residueMap x); exact Algebra.toModule)
 
+lemma _root_.AlgebraicGeometry.LocallyRingedSpace.Hom.degree_comp {X Y Z : Scheme} (f : X ⟶ Y)
+  (g : Y ⟶ Z) (x : X) : Hom.degree (f ≫ g) x = Hom.degree f x * Hom.degree g (f.base x) := by
+  simp[Hom.degree]
+
+  sorry
 
 open Classical in
 /--
@@ -209,6 +214,14 @@ def mapAux {Y : Scheme} (δₓ : X → ℤ) [dimensionFunction δₓ]
   (δₐy : Y → ℤ) [dimensionFunction δₐy] (f : X ⟶ Y) (x : X) : ℤ :=
   if δₓ x = δₐy (f.base x) then Hom.degree f x else 0
 
+lemma mapAux_comp {Y Z : Scheme} (δx : X → ℤ) [dimensionFunction δx]
+  (δy : Y → ℤ) (δz : Z → ℤ) [dimensionFunction δy] [dimensionFunction δz]
+  (f : X ⟶ Y) (g : Y ⟶ Z) (x : X) : mapAux δx δz (f ≫ g) x = (mapAux δx δy f x) * (mapAux δy δz g (f.base x)) := by
+  simp[mapAux]
+  split_ifs
+  simp[Hom.degree]
+
+  sorry
 
 --set_option profiler true
 
@@ -447,8 +460,15 @@ lemma map_comp {Y Z : Scheme} (δₓ : X → ℤ) [dimensionFunction δₓ] (δy
   (δz : Z → ℤ) [dimensionFunction δz]
   (f : X ⟶ Y) [qcf : QuasiCompact f] (g : Y ⟶ Z) [qcg : QuasiCompact g]
   (c : AlgebraicCycle X) (c' : AlgebraicCycle Y) : map δy δz g (map δₓ δy f c) = map δₓ δz (f ≫ g) c := by
-  simp[ext, map, mapAux]
+  simp[ext]
   ext a
+  simp[map]
+  --suffices
+  suffices ∑ x ∈ (preimageSupportFinite g (map δₓ δy f c) a).toFinset, (map δₓ δy f c) x * mapAux δy δz g x = ∑ x ∈ (preimageSupportFinite (f ≫ g) c a).toFinset, c x * mapAux δₓ δz (f ≫ g) x by exact
+    this --∑ x ∈ (preimageSupport f c x).Finite
+  suffices ∑ x ∈ (preimageSupportFinite g (map δₓ δy f c) a).toFinset, (∑ y ∈ (preimageSupportFinite f c x).toFinset, c y * mapAux δₓ δy f y) * mapAux δy δz g x = ∑ x ∈ (preimageSupportFinite (f ≫ g) c a).toFinset, c x * mapAux δₓ δz (f ≫ g) x by exact this
+  simp[mapAux_comp δₓ δy δz f g]
+
 
 
 
@@ -973,6 +993,8 @@ noncomputable
         We should probably convert this into something about unions, then use the fact that everythin
         is finite to get our result.
         -/
+
+
         sorry
       /-
       We want to maybe take the union of the sets from test over the points in singletonFinite.
