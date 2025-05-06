@@ -35,11 +35,37 @@
 From now, let $(S, \delta)$ denote a locally Noetherian universally catenary scheme
 with dimension funtion $\delta$.
 
+\begin{theorem}[Dimension Formula]
+  \label{thm:dimformula}
+  
+  Let $S$ be a scheme. Let $f:X \rightarrow S$ be a morphism of schemes. Let $x \in X$, and set $s=f(x)$. Assume
+
+  $S$ is locally Noetherian,
+  
+  $f$ is locally of finite type,
+  
+  $X$ and $S$ integral, and
+  
+  $f$ dominant.
+  
+  We have
+
+  \[
+  \dim(\reg_{X, x}) \leq \dim(\reg_{S, s}) + \text{trdeg}_{R(S)} R(X) - \text{trdeg}_{\kappa(s)} \kappa(x)
+  \]
+
+\end{theorem}
+\begin{proof}
+The proof on the stacks project proceeds via the the analogous algebra statement 02IJ.
+\end{proof}
+
+
 
 \begin{theorem}[Lifting of dimension functions]
   \label{02JW}
   \uses{02J7}
   \uses{def:dimfun}
+  \uses{thm:dimformula}
   Let $f:X \rightarrow S$ be a morphism of schemes.
   Assume $f$ locally of finite type. Then the map
   \[
@@ -48,9 +74,12 @@ with dimension funtion $\delta$.
   &x \mapsto \delta (f (x)) + \text{trdeg}_{\kappa(f(x))} \kappa (x)
   \end{split}
   \]
-  where $\kappa(x)$ denotes the residue field at $x$.
+  where $\kappa(x)$ denotes the residue field at $x$ is a dimension function on $X$. 
 
 \end{theorem}
+\begin{proof}
+  Stacks project 02JW.
+\end{proof}
 
 
 \begin{definition}[Algebraic Cycle on a sheme]

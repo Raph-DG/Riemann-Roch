@@ -20,10 +20,13 @@ variable (R : Type v)
          {X : Scheme}
 
 
-class TopologicalSpace.dimensionFunction {Z : Type*} [TopologicalSpace Z] (δ : Z → ℤ) where
+class TopologicalSpace.isDimensionFunction {Z : Type*} [TopologicalSpace Z] (δ : Z → ℤ) where
   increase : ∀ x y : Z, x ⤳ y ∧ x ≠ y → δ (x) > δ (y)
   step : ∀ x y : Z, @CovBy Z (specializationPreorder Z).toLT x y → δ x = δ y + 1
 
+structure dimensionFunction (Z : Type*) [TopologicalSpace Z] where
+  δ : Z → ℤ
+  dimFun : isDimensionFunction δ
 
 
 def TopologicalSpace.toIrreducibleSubClosed {Z : Type*} [TopologicalSpace Z]
@@ -47,8 +50,11 @@ class TopologicalSpace.Catenary (Z : Type*) [TopologicalSpace Z] : Prop where
 #check Algebra.trdeg
 
 @[stacks 02J8]
-class AlgebraicGeometry.UniversallyCatenary {S : Scheme} [IsLocallyNoetherian S] where
+class AlgebraicGeometry.UniversallyCatenary (S : Scheme) [IsLocallyNoetherian S] where
     universal : ∀ X : Scheme, ∀ f : X ⟶ S, LocallyOfFiniteType f → Catenary X
+
+def AlgebraicGeometry.ioio {S X : Scheme} [IsLocallyNoetherian S] [UniversallyCatenary S]
+  (δ : dimensionFunction S) (f : X ⟶ S) [LocallyOfFiniteType f] : dimensionFunction X := sorry
 
 --@[stacks 02JW]
 
@@ -196,7 +202,10 @@ def _root_.AlgebraicGeometry.LocallyRingedSpace.Hom.degree {X Y : Scheme} (f : X
     (by infer_instance)
     (by have := RingHom.toAlgebra (f.residueMap x); exact Algebra.toModule)
 
-lemma _root_.AlgebraicGeometry.LocallyRingedSpace.Hom.degree_comp {X Y Z : Scheme} (f : X ⟶ Y)
+
+
+lemma _root_.AlgebraicGeometry.LocallyRingedSpace.Hom.degree_comp {X Y Z : Scheme}
+  [IsIntegral X] [IsIntegral Y] [IsIntegral Z] (f : X ⟶ Y)
   (g : Y ⟶ Z) (x : X) : Hom.degree (f ≫ g) x = Hom.degree f x * Hom.degree g (f.base x) := by
   simp[Hom.degree]
 
@@ -210,23 +219,23 @@ IF THE CONJECTURED "ONLY IF" IN THE ABOVE STATEMENT HOLDS, THEN THIS DEFINITION 
 SAME AS DEGREE WITH AN UNECESSARY CASE DISTINCTION ADDED IN
 -/
 noncomputable
-def mapAux {Y : Scheme} (δₓ : X → ℤ) [dimensionFunction δₓ]
-  (δₐy : Y → ℤ) [dimensionFunction δₐy] (f : X ⟶ Y) (x : X) : ℤ :=
+def mapAux {Y : Scheme} (δₓ : X → ℤ) [TopologicalSpace.isDimensionFunction δₓ]
+  (δₐy : Y → ℤ) [TopologicalSpace.isDimensionFunction δₐy] (f : X ⟶ Y) (x : X) : ℤ :=
   if δₓ x = δₐy (f.base x) then Hom.degree f x else 0
 
-lemma mapAux_comp {Y Z : Scheme} (δx : X → ℤ) [dimensionFunction δx]
-  (δy : Y → ℤ) (δz : Z → ℤ) [dimensionFunction δy] [dimensionFunction δz]
+lemma mapAux_comp {Y Z : Scheme} (δx : X → ℤ) [TopologicalSpace.isDimensionFunction δx]
+  (δy : Y → ℤ) (δz : Z → ℤ) [TopologicalSpace.isDimensionFunction δy] [TopologicalSpace.isDimensionFunction δz]
   (f : X ⟶ Y) (g : Y ⟶ Z) (x : X) : mapAux δx δz (f ≫ g) x = (mapAux δx δy f x) * (mapAux δy δz g (f.base x)) := by
   simp[mapAux]
-  split_ifs
-  simp[Hom.degree]
+  --split_ifs
+  --simp[Hom.degree]
 
   sorry
 
 --set_option profiler true
 
 
-lemma map_locally_finite {Y : Scheme} (δₓ : X → ℤ) [dimensionFunction δₓ] (δy : Y → ℤ) [dimensionFunction δy]
+lemma map_locally_finite {Y : Scheme} (δₓ : X → ℤ) [TopologicalSpace.isDimensionFunction δₓ] (δy : Y → ℤ) [TopologicalSpace.isDimensionFunction δy]
   (f : X ⟶ Y) [qc : QuasiCompact f] (c : AlgebraicCycle X) :
   ∀ z ∈ (⊤ : Set Y), ∃ t ∈ 𝓝 z, (t ∩ Function.support fun z ↦
   ∑ x ∈ (preimageSupportFinite f c z).toFinset, (c x) * mapAux δₓ δy f x).Finite := by
@@ -386,7 +395,7 @@ lemma map_locally_finite {Y : Scheme} (δₓ : X → ℤ) [dimensionFunction δ�
 
 open Classical in
 noncomputable
-def map {Y : Scheme} (δₓ : X → ℤ) [dimensionFunction δₓ] (δy : Y → ℤ) [dimensionFunction δy]
+def map {Y : Scheme} (δₓ : X → ℤ) [TopologicalSpace.isDimensionFunction δₓ] (δy : Y → ℤ) [TopologicalSpace.isDimensionFunction δy]
   (f : X ⟶ Y) [qc : QuasiCompact f] (c : AlgebraicCycle X) : AlgebraicCycle Y where
   toFun z := (∑ x ∈ (preimageSupportFinite f c z).toFinset, (c x) * mapAux δₓ δy f x)
   supportWithinDomain' := by simp
@@ -406,7 +415,7 @@ lemma map_ext {Y : Scheme} (δₓ : X → ℤ) [dimensionFunction δₓ] (δy : 
   map δₓ δy f c = c' ↔ -/
 
 #check CategoryTheory.CategoryStruct.id
-lemma map_id (δₓ : X → ℤ) [dimensionFunction δₓ] (c : AlgebraicCycle X) :
+lemma map_id (δₓ : X → ℤ) [TopologicalSpace.isDimensionFunction δₓ] (c : AlgebraicCycle X) :
     map δₓ δₓ (𝟙 X) c = c := by
    rw[ext]
    ext z
@@ -456,8 +465,8 @@ lemma map_id (δₓ : X → ℤ) [dimensionFunction δₓ] (c : AlgebraicCycle X
 
    exact Or.inl (finrank_self (IsLocalRing.ResidueField ↑(X.presheaf.stalk z)))-/
 
-lemma map_comp {Y Z : Scheme} (δₓ : X → ℤ) [dimensionFunction δₓ] (δy : Y → ℤ) [dimensionFunction δy]
-  (δz : Z → ℤ) [dimensionFunction δz]
+lemma map_comp {Y Z : Scheme} (δₓ : X → ℤ) [TopologicalSpace.isDimensionFunction δₓ] (δy : Y → ℤ) [TopologicalSpace.isDimensionFunction δy]
+  (δz : Z → ℤ) [TopologicalSpace.isDimensionFunction δz]
   (f : X ⟶ Y) [qcf : QuasiCompact f] (g : Y ⟶ Z) [qcg : QuasiCompact g]
   (c : AlgebraicCycle X) (c' : AlgebraicCycle Y) : map δy δz g (map δₓ δy f c) = map δₓ δz (f ≫ g) c := by
   simp[ext]
@@ -563,7 +572,7 @@ def surjectiveg {a b : R} (ha : a ∈ nonZeroDivisors R) (hb : b ∈ nonZeroDivi
       use y
       exact hy.symm
   suffices Function.Surjective ⇑(Submodule.liftQ (LinearMap.range f) (Submodule.mkQ (Ideal.span {b}))
-      (hf ▸ _root_.id (Eq.refl (Submodule.mkQ (Ideal.span {b}))) ▸ quotientExactg._proof_19 a b)) by
+      (hf ▸ _root_.id (Eq.refl (Submodule.mkQ (Ideal.span {b}))) ▸ quotientExactg._proof_17 a b)) by
 
     sorry
 
@@ -937,8 +946,8 @@ def principalCycle {ι : Type*} (B : ι → Scheme) (hB : ∀ i : ι, IsIntegral
     --(fun i : ι ↦ cycleMap (W i) (div (f i))) --(by sorry)-/
 
 
-def singletonFinite {ι : Type*} (B : ι → Scheme) (δₓ : X → ℤ) [dimensionFunction δₓ]
-    (δ : (i : ι) → B i → ℤ) [∀ i, dimensionFunction (δ i)]
+def singletonFinite {ι : Type*} (B : ι → Scheme) (δₓ : X → ℤ) [TopologicalSpace.isDimensionFunction δₓ]
+    (δ : (i : ι) → B i → ℤ) [∀ i, TopologicalSpace.isDimensionFunction (δ i)]
     (hB : ∀ i : ι, IsIntegral (B i))
     (hB' : ∀ i : ι, IsLocallyNoetherian (B i)) (W : (i : ι) → B i ⟶ X) [∀ i, QuasiCompact (W i)]
     (f : (i : ι) → (B i).functionField) (hf : ∀ i : ι, f i ≠ 0)
@@ -964,8 +973,8 @@ W i from B i to X) which is locally finite, we define a principal cycle to be a 
 the sum of the pushforwards of div (f i), where f is a family of rational functions on (B i).
 -/
 noncomputable
-  def principalCycle {ι : Type*} (B : ι → Scheme) (δₓ : X → ℤ) [dimensionFunction δₓ]
-    (δ : (i : ι) → B i → ℤ) [∀ i, dimensionFunction (δ i)]
+  def principalCycle {ι : Type*} (B : ι → Scheme) (δₓ : X → ℤ) [TopologicalSpace.isDimensionFunction δₓ]
+    (δ : (i : ι) → B i → ℤ) [∀ i, TopologicalSpace.isDimensionFunction (δ i)]
     (hB : ∀ i : ι, IsIntegral (B i))
     (hB' : ∀ i : ι, IsLocallyNoetherian (B i)) (W : (i : ι) → B i ⟶ X) [∀ i, QuasiCompact (W i)]
     [∀ i : ι, IsClosedImmersion (W i)]
@@ -1023,6 +1032,7 @@ structure LocallyFiniteClosedFamily (X : Scheme) where
 /-
 This is a fairly stupid way to say two cycles are rationally equivalent, but nevertheless
 -/
+/-
 noncomputable
 def rationallyEquivalent (D₁ D₂ : AlgebraicCycle X) : Prop :=
   ∃ F : LocallyFiniteClosedFamily X, D₁ - D₂ = principalCycle F.B F.hB F.hB' F.W F.hW F.f
@@ -1031,8 +1041,7 @@ theorem equiv_of_ratEquiv : IsEquiv (AlgebraicCycle X) (rationallyEquivalent (X 
   refl := sorry
   trans := sorry
   symm := sorry
-
-#check IsEquiv
+#check IsEquiv-/
 /-
 We need some way of talking about locally finite families of algebraic
 cycles to make the previous definition sensible
