@@ -9,13 +9,19 @@ open Function
 
 variable {R : Type*} [CommRing R] {M : Type*} [AddCommMonoid M] [Module R M]
 
-lemma LinearMap.span_singleton_le_range_mul (a b : R) :
+lemma LinearMap.span_singleton_le_ker_mul (a b : R) :
   Ideal.span {a} ≤
-    LinearMap.ker ((Submodule.span (R := R) (M := R) {a*b}).mkQ ∘ₗ LinearMap.mul R R b) := by
-  simp[mul_comm, Ideal.mem_span_singleton, Ideal.span_le, LinearMap.ker_comp, Submodule.ker_mkQ]
+    LinearMap.ker ((Ideal.span {a*b}).mkQ ∘ₗ LinearMap.mul R R b) := by
+  simp [mul_comm, Ideal.mem_span_singleton, Ideal.span_le]
 
-lemma LinearMap.range_mul (a : R) : range (mul R R a) = a • ⊤ := by
-  simp[Ideal.ext_iff,Submodule.mem_smul_pointwise_iff_exists, mem_range]
+lemma LinearMap.range_mul (A : Type u_2) [CommSemiring R] [CommSemiring A] [Module R A] 
+  [SMulCommClass R A A] [IsScalarTower R A A] (a : A) : range (mul R A a) = (Ideal.span {a}).restrictScalars R := by
+  aesop (add simp Ideal.mem_span_singleton) (add simp dvd_def)
+
+@[simp]
+lemma LinearMap.range_mul' (a : R) : range (mul R R a) = Ideal.span {a} := range_mul ..
+  --simp[Ideal.ext_iff,Submodule.mem_smul_pointwise_iff_exists, mem_range]
+  
 
 lemma Submodule.span_quot (a : R) (I : Ideal R) : (a • ⊤ : Submodule R (R ⧸ a • I)) =
    Submodule.span R {Submodule.Quotient.mk a} := by
@@ -66,12 +72,7 @@ def LinearMap.mulQuotInjective {a : R} (I : Ideal R) (ha : a ∈ nonZeroDivisors
   · have m : I = Submodule.comap (mul R R a) (a • I) := by
       ext b
       exact Iff.symm (Submodule.mul_mem_smul_iff ha)
-    suffices ker (Submodule.mkQ (a • I) ∘ₗ (mul R R) a) ≤ Submodule.comap (mul R R a) (a • I) by
-      rw[←m] at this
-      exact this
-    rw[ker_comp]
-    simp
-
+    simp[←m, ker_comp]
 lemma LinearMap.smul_le_span (s : Set R) (I : Ideal R) : s • I ≤ Ideal.span s :=
   by simp[← Submodule.set_smul_top_eq_span, Submodule.singleton_set_smul, smul_le_smul_left]
 
@@ -87,218 +88,15 @@ def LinearMap.quotOfMulSurjective {a : R} (I : Ideal R) :
 
 def LinearMap.quotMulExact {a : R} (I : Ideal R) :
   Function.Exact (LinearMap.mulQuot a I) (LinearMap.quotOfMul a I) := by
-  simp[LinearMap.exact_iff]
+  simp [LinearMap.exact_iff]
   have : ker (quotOfMul a I) = a • ⊤ := by
-    simp[quotOfMul, Submodule.factor, Submodule.mapQ.eq_1, Submodule.ker_liftQ]
+    simp [quotOfMul, Submodule.factor, Submodule.mapQ.eq_1, Submodule.ker_liftQ]
     suffices Submodule.map (Submodule.mkQ (a • I)) (Submodule.span R {a}) = a • ⊤ by exact
       this
-    rw[Submodule.map_span]
-    simp[Submodule.span_quot]
-  simp[this, mulQuot, Submodule.mapQ.eq_1, Submodule.range_liftQ, range_comp, range_mul]
+    rw [Submodule.map_span]
+    simp [Submodule.span_quot]
+  simp [this, mulQuot, Submodule.mapQ.eq_1, Submodule.range_liftQ, range_comp, range_mul]
 
-
-
-  /-
-  simp[LinearMap.mulQuot, LinearMap.quotOfMul]
-  rw[Function.Exact]
-  intro r
-  constructor
-  · intro hr
-    simp at hr
-    sorry-/
-    /-obtain ⟨y, hy⟩ := hr
-      have : ∃ y', y = b*y' := by
-        have := hy.1
-        rw [@Ideal.mem_span_singleton'] at this
-        obtain ⟨y', hy'⟩ := this
-        use y'
-        rw[← hy']
-        exact CommMonoid.mul_comm y' b
-      obtain ⟨y', hy'⟩ := this
-      use (Ideal.Quotient.mk (Ideal.span {a})) y'
-      aesop-/
-  /-· intro hr
-    simp_all
-    obtain ⟨y, hy⟩ := hr
-    have : ∃ y' : R, y = Submodule.Quotient.mk y' := by
-      have : Function.Surjective (Ideal.Quotient.mk I) := Ideal.Quotient.mk_surjective
-      obtain ⟨y', hy'⟩ := this y
-      use y'
-      exact hy'.symm
-    obtain ⟨y', hy'⟩ := this
-    rw[hy'] at hy
-    rw[Submodule.mapQ.eq_1] at hy
-    rw[Submodule.liftQ_apply] at hy
-    simp at hy
-    simp[← hy]
-    rw?-/
-
-
-    /-
-    use b*y'
-    constructor
-    · rw [@Ideal.mem_span_singleton]
-      exact dvd_mul_right b y'
-    · simp
-      exact hy-/
-
-
-  /-have : Submodule.mapQ (a • I) I LinearMap.id (by simp) =
-         Submodule.factor (by simp) := rfl
-  rw[← this]
-  refine exact_iff.mpr ?_
-  simp[Submodule.mapQ.eq_1, Submodule.ker_liftQ, Submodule.range_liftQ]
-  ext b
-  rw [@range_comp]
-  have : range (mul R R a) = a • ⊤ := sorry
-  rw[this]
-  simp only [Submodule.mem_map, Submodule.mkQ_apply, Ideal.Quotient.mk_eq_mk,
-    Submodule.map_pointwise_smul, Submodule.map_top, Submodule.range_mkQ]
-  constructor
-  · intro h
-    obtain ⟨y, hy⟩ := h
-    rw[← hy.2]
-
-    --suffices a ∣ b by sorry
-    sorry
-  · intro h
-
-    sorry-/
-
-  --rw[← Submodule.mapQ_eq_factor]
-  --#check Function.Exact.exact_mapQ_iff
-  --refine exact_iff.mpr ?_
-
-#check Submodule.ker_liftQ_eq_bot'
-/-
-def LinearMap.quotOfMul (a b : R) :
-  (R ⧸ Submodule.span (R := R) (M := R) {a*b}) →ₗ[R] (R ⧸ Submodule.span (R := R) (M := R) {b}) :=
-    have : Ideal.span {a * b} ≤ Ideal.span {b} := by
-      rw [Ideal.span_singleton_le_span_singleton]
-      exact dvd_mul_left b a
-    let o := (Submodule.map (Submodule.span (R := R) (M := R) {a*b}).mkQ
-      (Submodule.span (R := R) (M := R) {b})).mkQ
-    let l := Submodule.quotientQuotientEquivQuotient
-      (Submodule.span (R := R) (M := R) {a*b}) (Submodule.span (R := R) (M := R) {b}) (by aesop)
-    l.toLinearMap ∘ₗ o
-
-def LinearMap.mulQuotInjective' {b : R} (I : Ideal R) (hb : b ∈ nonZeroDivisors R) :
-  Function.Injective (LinearMap.mulQuot b I) := by
-  simp[LinearMap.mulQuot]
-  rw [injective_iff_map_eq_zero]
-  intro a ha
-  #check Submodule.mapQ
-  have : ∃ a', a = Submodule.Quotient.mk a' := sorry
-  obtain ⟨r, hr⟩ := this
-  rw[hr] at ha
-  rw[Submodule.mapQ_apply] at ha
-  simp at ha
-  rw[hr]
-  simp only [Ideal.Quotient.mk_eq_mk]
-
-
-
-
-  --rw[← hr] at ha
-  --have : Submodule.mapQ I (b • I) ((b : R ⧸ I) * a) = 0 := sorry
-  sorry
-  /-suffices LinearMap.ker (LinearMap.mulQuot a b) = ⊥ by exact LinearMap.ker_eq_bot.mp this
-  simp[LinearMap.mulQuot]
-  apply Submodule.ker_liftQ_eq_bot'
-  apply le_antisymm
-  · simp only [Ideal.span_le, Set.singleton_subset_iff, SetLike.mem_coe, mem_ker, coe_comp,
-    Function.comp_apply, mul_apply_apply, Submodule.mkQ_apply, Ideal.Quotient.mk_eq_mk]
-    suffices (Submodule.mkQ (Ideal.span {a * b})) (a * b) = 0 by
-      exact (CommMonoid.mul_comm a b).symm ▸ this
-    aesop
-  · intro x hx
-    simpa only [Ideal.mem_span_singleton, mem_ker, coe_comp, Function.comp_apply, mul_apply_apply,
-      mul_comm b x, Submodule.mkQ_apply, Submodule.Quotient.mk_eq_zero,
-      dvd_cancel_right_mem_nonZeroDivisors hb] using hx  -/
-
-    --(by simp[mul_comm, Ideal.mem_span_singleton, Ideal.span_le])
-
-def LinearMap.mulQuotInjective {b : R} (I : Ideal R) (hb : b ∈ nonZeroDivisors R) :
-  Function.Injective (LinearMap.mulQuot b I) := by
-  suffices LinearMap.ker (LinearMap.mulQuot a b) = ⊥ by exact LinearMap.ker_eq_bot.mp this
-  simp[LinearMap.mulQuot]
-  apply Submodule.ker_liftQ_eq_bot'
-  apply le_antisymm
-  · simp only [Ideal.span_le, Set.singleton_subset_iff, SetLike.mem_coe, mem_ker, coe_comp,
-    Function.comp_apply, mul_apply_apply, Submodule.mkQ_apply, Ideal.Quotient.mk_eq_mk]
-    suffices (Submodule.mkQ (Ideal.span {a * b})) (a * b) = 0 by
-      exact (CommMonoid.mul_comm a b).symm ▸ this
-    aesop
-  · intro x hx
-    simpa only [Ideal.mem_span_singleton, mem_ker, coe_comp, Function.comp_apply, mul_apply_apply,
-      mul_comm b x, Submodule.mkQ_apply, Submodule.Quotient.mk_eq_zero,
-      dvd_cancel_right_mem_nonZeroDivisors hb] using hx
-
-lemma span_le_ker_mqQ_of_mul (a b : R) :
-  Submodule.span R {a * b} ≤ LinearMap.ker (Submodule.span (R := R) (M := R) {b}).mkQ := by
-    simp only [Ideal.submodule_span_eq, Submodule.ker_mkQ,
-               Ideal.span_singleton_le_span_singleton, dvd_mul_left b a]
-
-
-
-lemma LinearMap.range_mul_eq (a : R) : LinearMap.range (LinearMap.mul R R a) = Ideal.span {a} := by
-  ext x
-  constructor
-  · intro hx
-    obtain ⟨y, hy⟩ := hx
-    simp [← hy, Ideal.mem_span_singleton]
-  · intro hx
-    rw [Ideal.mem_span_singleton, dvd_def] at hx
-    obtain ⟨y, hy⟩ := hx
-    use y
-    exact hy.symm
-
-
-def LinearMap.quotOfMulSurjective {a b : R} :
-    Function.Surjective (LinearMap.quotOfMul a b) := by
-    simp[LinearMap.quotOfMul]
-    exact
-      Submodule.mkQ_surjective (Submodule.map (Submodule.mkQ (Ideal.span {a * b})) (Ideal.span {b}))
-
-lemma LinearMap.quotMul_range_of_quotOfMul_ker {a b : R} {r : R ⧸ Submodule.span R {a * b}}
-  (hr : (quotOfMul a b) r = 0) : r ∈ Set.range ⇑(mulQuot a b) := by
-    simp_all[LinearMap.quotOfMul, LinearMap.mulQuot]
-    obtain ⟨y, hy⟩ := hr
-    have : ∃ y', y = b*y' := by
-      have := hy.1
-      rw [@Ideal.mem_span_singleton'] at this
-      obtain ⟨y', hy'⟩ := this
-      use y'
-      rw[← hy']
-      exact CommMonoid.mul_comm y' b
-    obtain ⟨y', hy'⟩ := this
-    use (Ideal.Quotient.mk (Ideal.span {a})) y'
-    aesop
-
-lemma LinearMap.quotOfMul_ker_of_quotMul_range {a b : R} {r : R ⧸ Submodule.span R {a * b}}
-  (hr : r ∈ Set.range ⇑(mulQuot a b)) : (quotOfMul a b) r = 0 := by
-  simp_all[LinearMap.quotOfMul, LinearMap.mulQuot]
-  obtain ⟨y, hy⟩ := hr
-  have : ∃ y' : R, y = Submodule.Quotient.mk y' := by
-    have : Function.Surjective (Ideal.Quotient.mk (Ideal.span {a})) := Ideal.Quotient.mk_surjective
-    obtain ⟨y', hy'⟩ := this y
-    use y'
-    exact hy'.symm
-  obtain ⟨y', hy'⟩ := this
-  rw[hy'] at hy
-  rw[Submodule.liftQ_apply] at hy
-  simp at hy
-  use b*y'
-  constructor
-  · rw [@Ideal.mem_span_singleton]
-    exact dvd_mul_right b y'
-  · simp
-    exact hy
-
-def LinearMap.quotMulExact {a b : R} :
-  Function.Exact (LinearMap.mulQuot a b) (LinearMap.quotOfMul a b) :=
-  fun _ ↦ ⟨quotMul_range_of_quotOfMul_ker, quotOfMul_ker_of_quotMul_range⟩-/
-#min_imports
 variable (R)
 /--
 ENat valued order of vanishing function. Note
@@ -319,14 +117,6 @@ theorem CommRing.ord_mul {a b : R}
     (LinearMap.mulQuotInjective (Ideal.span {a}) hb) LinearMap.quotOfMulSurjective LinearMap.quotMulExact
 
 instance : CommMonoidWithZero (Multiplicative ℕ∞) where
-  mul a b := a * b
-  mul_assoc := mul_assoc
-  one := 1
-  one_mul := one_mul
-  mul_one := MulOneClass.mul_one
-  npow_zero _ := rfl
-  npow_succ _ _ := rfl
-  mul_comm := CommMonoid.mul_comm
   zero := ⊤
   zero_mul _ := rfl
   mul_zero a := add_top (toAdd a)

@@ -50,7 +50,7 @@ class TopologicalSpace.Catenary (Z : Type*) [TopologicalSpace Z] : Prop where
 
 @[stacks 02J8]
 class AlgebraicGeometry.UniversallyCatenary (S : Scheme) [IsLocallyNoetherian S] where
-    universal : ∀ X : Scheme, ∀ f : X ⟶ S, LocallyOfFiniteType f → Catenary X
+    universal {X : Scheme} (f : X ⟶ S) [LocallyOfFiniteType f] : Catenary X
 
 /--
 Canonically defined dimnension function on a scheme of finite type over
@@ -701,6 +701,45 @@ def orderOfVanishing (x : K) (hx : x ≠ 0) : ℤ :=
 
 #check Order.coheight
 
+
+def nj {X : Type*} [TopologicalSpace X] (U : Set X) (h : IsOpen U) :
+  {V : IrreducibleCloseds X | V.carrier ∩ U ≠ ∅} ≃o IrreducibleCloseds U where
+    toFun T := {
+      carrier := Subtype.val ⁻¹' (T.1.carrier)
+      is_irreducible' := by
+        have := T.1.2
+        have : IsPreirreducible (X := U) (Subtype.val ⁻¹' (T.1.carrier)) := by 
+          apply IsPreirreducible.preimage
+          · exact IsIrreducible.isPreirreducible this
+          · exact IsOpen.isOpenEmbedding_subtypeVal h
+        rw[IsIrreducible.eq_1]
+        constructor
+        · have := T.2
+          sorry
+        · exact this
+      is_closed' := by
+        have := T.1.3
+        exact IsClosed.preimage_val this
+    }
+    invFun T := {
+      val := {
+        carrier := Subtype.val '' T.1
+        is_irreducible' := by
+          have := T.2
+          apply IsIrreducible.image this
+          apply Continuous.continuousOn
+          exact continuous_subtype_val
+        is_closed' := by
+
+          sorry
+      }
+      property := sorry
+    } 
+    left_inv := sorry
+    right_inv := sorry
+    map_rel_iff' := sorry
+
+
 @[stacks 02I4]
 lemma fifi {X : Scheme} {Z : X} (U : X.affineOpens) (hU : Z ∈ U.1) :
   Order.height (α := U) ⟨Z, hU⟩ = Order.height Z := by
@@ -732,9 +771,12 @@ lemma fifi {X : Scheme} {Z : X} (U : X.affineOpens) (hU : Z ∈ U.1) :
     rw[@_root_.mem_nhds_iff] at this
     obtain ⟨t, ht⟩ := this
     exact ht.1 ht.2.2
+
   rw[height, height, le_antisymm_iff, iSup_le_iff]
   constructor
   · intro s n hs
+
+
     sorry
   · intro n h
     use n
@@ -804,9 +846,19 @@ lemma foofo {X : Scheme} (Z : X) (d : ℕ) (hZ : Order.height Z = d) : ringKrull
 
   sorry
 
-instance {X : Scheme} [IsLocallyNoetherian X] {Z : X} : IsNoetherianRing (X.presheaf.stalk Z) := sorry
+instance {X : Scheme} [IsLocallyNoetherian X] {Z : X} : IsNoetherianRing (X.presheaf.stalk Z) := by
+  -- Same proof doesn't work here because we don't necessarily know our space is irreducible now.
+  -- I'm not sure if there's a smarter way to do this than to just provide a construction.
+  have : ∃ U : X.affineOpens, Z ∈ U.1 := sorry
+  obtain ⟨U, hU⟩ := this
+  have := AlgebraicGeometry.IsAffineOpen.isLocalization_stalk U.2 ⟨Z, hU⟩
+  apply @IsLocalization.isNoetherianRing _ _ (U.2.primeIdealOf ⟨Z, hU⟩).asIdeal.primeCompl (X.presheaf.stalk Z) _ (X.presheaf.algebra_section_stalk ⟨Z, hU⟩) this
+  exact IsLocallyNoetherian.component_noetherian U
 
-instance {X : Scheme} [IsIntegral X] {Z : X} : IsDomain (X.presheaf.stalk Z) := sorry
+
+instance {X : Scheme} [IsIntegral X] {Z : X} : IsDomain (X.presheaf.stalk Z) :=
+  Function.Injective.isDomain _ (IsFractionRing.injective (X.presheaf.stalk Z) (X.functionField))
+
 
 noncomputable
 def _root_.AlgebraicGeometry.Scheme.ord {X : Scheme} [IsIntegral X] [IsLocallyNoetherian X]
@@ -855,7 +907,7 @@ def div [IsIntegral X] [h : IsLocallyNoetherian X]
         /-
         Trivial nonsense
         -/
-        sorry
+        
       · let XU := (⊤ : Set X) \ U
         have properClosed : XU ≠ ⊤ ∧ IsClosed XU := sorry
 
@@ -1158,7 +1210,8 @@ Define :-
     the meaning of the infinite sum would still be a bit mysterious.
     Possibly best to do this with Serre finiteness, which ought to fall
     out of Cech cohomology definition almost immediately
-
+  - One thing is, we could define the Euler characteristic for the case we need to be
+    h0 - h1 with usual addition on
   Cech Cohomology:
   - Cech cohomology with respect to a cover
   - Show that a curve always has an affine cover with two pieces
@@ -1175,5 +1228,6 @@ Could define :-
 
 
 -/
+#check (3 : ℕ∞) - ⊤
 
 end AlgebraicCycle
