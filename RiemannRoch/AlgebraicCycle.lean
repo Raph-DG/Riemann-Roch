@@ -1,7 +1,22 @@
 import Mathlib
-import RiemannRoch.OrderOfVanishing
-
+import RiemannRoch.CodimLemma
+import RiemannRoch.IsFreeAbelian
 --import Batteries.Tactic.ShowUnused
+
+/-!
+# Algebraic Cycles
+
+In this file we define algebraic cycles on a scheme to be functions into the integers with locally
+finite support. Throughout this file, and indeed this project, we use height in the specialization
+order for dimension and coheight for codimension. For this to work nicely, we really need things to
+be catenary. We do not define this notion in this file (at the time of writing this) since we do
+not need it here, but this will be needed when one wants to relate dimension and codimension to
+eachother via the topological krull dimension of the scheme.
+
+Much of the algebraic structure on cycles is already defined happily, so here we just define the
+notion of the pushforward of algebraic cycles, and define the notion of a "principal cycle",
+which is just a witness for rational equivalence. We show that these principal
+-/
 
 open Filter Metric Real Set Topology
 
@@ -22,58 +37,19 @@ variable (R : Type*)
 
 
 
-class TopologicalSpace.isDimensionFunction {Z : Type*} [TopologicalSpace Z] (δ : Z → ℤ) where
-  increase : ∀ x y : Z, x ⤳ y ∧ x ≠ y → δ (x) > δ (y)
-  step : ∀ x y : Z, @CovBy Z (specializationPreorder Z).toLT x y → δ x = δ y + 1
 
-structure dimensionFunction (Z : Type*) [TopologicalSpace Z] where
-  δ : Z → ℤ
-  dimFun : isDimensionFunction δ
+lemma heightClosedPoint {X : Scheme} {x : X} (hx : IsClosed {x}) : height x = 0 := by
+  simp only [height_eq_zero]
+  intro b _
+  by_cases h : b ≠ x
+  have := IsClosed.not_specializes hx rfl h
+  · contradiction
+  · aesop
 
-
-def TopologicalSpace.toIrreducibleSubClosed {Z : Type*} [TopologicalSpace Z]
-  (T T' : TopologicalSpace.IrreducibleCloseds Z) (h : T.carrier ⊆ T'.carrier) :
-    TopologicalSpace.IrreducibleCloseds T' where
-      carrier := fun z ↦ T.carrier z
-      is_irreducible' := by
-        have := T.2
-        sorry
-      is_closed' := sorry
-
-/-
-We should take this definition of the induced subspace of T' out of this definition and make it
-into its own thing.
-
-In fact, it will probably be useful to have some more stuff about codimension
--/
-class TopologicalSpace.Catenary (Z : Type*) [TopologicalSpace Z] : Prop where
-  catenary : ∀ T T' : TopologicalSpace.IrreducibleCloseds Z, (o : T.carrier ⊂ T'.carrier) →
-    Order.coheight (α := TopologicalSpace.IrreducibleCloseds T') (TopologicalSpace.toIrreducibleSubClosed T T' o.le) ≠ ⊤
-
-@[stacks 02J8]
-class AlgebraicGeometry.UniversallyCatenary (S : Scheme) [IsLocallyNoetherian S] where
-    universal {X : Scheme} (f : X ⟶ S) [LocallyOfFiniteType f] : Catenary X
-
-/--
-Canonically defined dimnension function on a scheme of finite type over
-a universally catenary scheme with a dimension function δ.
--/
-def AlgebraicGeometry.ioio {S X : Scheme} [IsLocallyNoetherian S] [UniversallyCatenary S]
-  (δ : dimensionFunction S) (f : X ⟶ S) [LocallyOfFiniteType f] : dimensionFunction X := sorry
-
---@[stacks 02JW]
-
-namespace DimensionFunction
-
-
-
-
-end DimensionFunction
-/-
-We define a preorder instance on a scheme X saying x ≤ y if y generalises x. This ought to
-correspond to x ≤ y ↔ closure {x} ⊆ closure {y},
--/
-instance instanceSchemePreord {X : Scheme} : Preorder X := specializationPreorder X
+noncomputable
+instance {X : Scheme} [IsIntegral X] : OrderTop X where
+  top := genericPoint X
+  le_top := fun a ↦ genericPoint_specializes a
 
 /--
 An algebraic cycle on a scheme X is defined to be a function from X to
@@ -81,12 +57,88 @@ An algebraic cycle on a scheme X is defined to be a function from X to
 -/
 abbrev AlgebraicCycle (X : Scheme) := Function.locallyFinsuppWithin (⊤ : Set X) ℤ
 
+
+
 namespace AlgebraicCycle
+
+/--
+Proposition saying whether a cycle is of pure dimension `d`.
+-/
+def IsHomogeneous (d : ℕ∞) (c : AlgebraicCycle X) : Prop := ∀ x ∈ c.support, height x = d
+
+/--
+Subgroup of cycles of pure dimension `d`.
+-/
+def HomogeneousAddSubgroup (X : Scheme) (d : ℕ∞) : AddSubgroup (AlgebraicCycle X) where
+  carrier := {c : AlgebraicCycle X | IsHomogeneous d c}
+  add_mem' c₁ c₂ := by
+    rename_i a b
+    simp_all only [IsHomogeneous, top_eq_univ, Function.mem_support, ne_eq, mem_setOf_eq,
+      Function.locallyFinsuppWithin.coe_add, Pi.add_apply]
+    intro x hx
+    specialize c₁ x
+    specialize c₂ x
+    have : ¬ a x = 0 ∨ ¬ b x = 0 := by omega
+    obtain h | h := this
+    · exact c₁ h
+    · exact c₂ h
+  zero_mem' := by simp [IsHomogeneous]
+  neg_mem' c := by simp_all [IsHomogeneous]
+
+
+/--
+Homogeneous part of dimension `d` of an algebraic cycle `c`.
+-/
+noncomputable
+def homogeneousProjection (c : AlgebraicCycle X) (d : ℕ∞) : HomogeneousAddSubgroup X d where
+  val := {
+    toFun x := if height x = d then c x else 0
+    supportWithinDomain' := by simp
+    supportLocallyFiniteWithinDomain' z hz := by
+      choose t ht using c.supportLocallyFiniteWithinDomain' z
+      use t hz
+      specialize ht hz
+      refine ⟨ht.1, ?_⟩
+      have := ht.2
+      apply Finite.subset this
+      refine inter_subset_inter (fun ⦃a⦄ a ↦ a) (Function.support_subset_iff'.mpr ?_)
+      intro x hx
+      simp only [top_eq_univ, Function.mem_support, ne_eq, Decidable.not_not,
+        ite_eq_right_iff] at hx ⊢
+      exact fun _ ↦ hx
+  }
+  property := by
+    simp only [top_eq_univ, HomogeneousAddSubgroup, IsHomogeneous, Function.mem_support, ne_eq,
+      AddSubgroup.mem_mk, mem_setOf_eq]
+    intro x hx
+    have : ¬ (if height x = d then c x else 0) = 0 := hx
+    aesop
 
 variable (f : X ⟶ Y)
          (c : AlgebraicCycle X)
          (x : X)
          (z : Y)
+lemma sma {α : Type*} (s t : Set α) : (s ∩ t) = {i : s | ↑i ∈ t} := by
+  aesop
+
+lemma ds {α : Type*} (s t : Set α) : {i : s | ({↑i} ∩ t).Nonempty} = (t ∩ s) := by aesop
+
+lemma _root_.LocallyFinite.of_set_set : LocallyFinite (fun s : c.support ↦ ({s.val} : Set X)) := by
+  intro z
+  obtain ⟨t, ht⟩ := c.supportLocallyFiniteWithinDomain' z (by aesop)
+  use t
+  refine ⟨ht.1, ?_⟩
+  have ans := ht.2
+  simp only [top_eq_univ, sma t (Function.support c.toFun), Function.mem_support, ne_eq,
+    Subtype.coe_image, mem_setOf_eq, exists_prop] at ans
+  simp only [top_eq_univ, Function.support, ne_eq, coe_setOf, mem_setOf_eq,
+    singleton_inter_nonempty]
+  have  : {x | x ∈ t ∧ ¬c.toFun x = 0} =
+            Subtype.val '' {i : { x // ¬c x = 0 } | ↑i ∈ t} := by aesop
+  rw[this] at ans
+  convert ans
+  apply Equiv.set_finite_iff
+  exact BijOn.equiv (Subtype.val) (InjOn.bijOn_image injOn_subtype_val)
 
 
 /--
@@ -96,15 +148,10 @@ noncomputable
 def single (coeff : ℤ) : AlgebraicCycle X where
   toFun := Set.indicator {x} (Function.const X coeff)
   supportWithinDomain' := by simp
-  supportLocallyFiniteWithinDomain' := by
-    intro z hz
-    use ⊤
-    constructor
-    · exact Filter.univ_mem' fun a ↦ trivial
-    · rw[← Function.const_def]
-      simp only [top_eq_univ, support_indicator, univ_inter]
-      exact toFinite ({x} ∩ Function.support fun x ↦ coeff)
+  supportLocallyFiniteWithinDomain' z hz :=
+    ⟨⊤, ⟨Filter.univ_mem' fun a ↦ trivial, by simp [← Function.const_def, toFinite]⟩⟩
 
+instance [CompactSpace X.carrier] : IsFreeAbelian (fun x ↦ single x 1 : X → AlgebraicCycle X) := sorry
 /--
 Implementation detail for the pushforward; the support of a cycle on X intersected with the preimage
 of a point z : Y along a morphism f : X ⟶ Y.
@@ -112,74 +159,18 @@ of a point z : Y along a morphism f : X ⟶ Y.
 def preimageSupport : Set X :=
   f.base ⁻¹' {z} ∩ c.support
 
+
 /--
 Implementation detail for the pushforward; the support of a cycle on X intersected with the preimage
 of a point z : Y along a quasicompact morphism f : X ⟶ Y is finite.
 -/
 def preimageSupportFinite [qf : QuasiCompact f] :
  (preimageSupport f c z).Finite := by
+  simp[preimageSupport]
   have cpct : IsCompact (f.base ⁻¹' {z}) := QuasiCompact.isCompact_preimage_singleton f z
-  rw[isCompact_iff_finite_subcover] at cpct
-
-  let cov : f.base ⁻¹' {z} → Set X := by
-    intro x
-    choose U hU using c.supportLocallyFiniteWithinDomain' x (by simp)
-    exact U
-
-  have covSpec (x : f.base ⁻¹' {z}) : cov x ∈ 𝓝 ↑x ∧ (cov x ∩ Function.support c.toFun).Finite :=
-    Classical.choose_spec (c.supportLocallyFiniteWithinDomain' (↑x) (of_eq_true (by simp)))
-
-  let openCov : f.base ⁻¹' {z} → Set X := by
-    intro x
-    have cs := (covSpec x).1
-    rw[_root_.mem_nhds_iff] at cs
-    choose U hU using cs
-    exact U
-
-  have openCovSpec (x : f.base ⁻¹' {z}) : openCov x ⊆ cov x ∧
-      IsOpen (openCov x) ∧ ↑x ∈ (openCov x) := by
-    simp_all [Classical.choose_spec (Eq.mp (congrArg (fun _a ↦ _a)
-              (propext _root_.mem_nhds_iff)) ((covSpec x).1)),
-              top_eq_univ, and_self, cov, openCov]
-
-  have covOpen (x : f.base ⁻¹' {z}) : IsOpen (openCov x) := (openCovSpec x).2.1
-
-  have covCovs : f.base ⁻¹' {z} ⊆ ⋃ i, openCov i := by
-    rw[subset_def]
-    intro x hx
-    have := (openCovSpec ⟨x, hx⟩).2.2
-    exact mem_iUnion_of_mem ⟨x, hx⟩ this
-
-  specialize cpct openCov covOpen covCovs
-
-  choose V hV using cpct
-
-  simp only [preimageSupport, Function.locallyFinsuppWithin.support]
-
-  have openCovSpec' : ∀ x : f.base ⁻¹' {z}, (openCov x ∩ Function.support c.toFun).Finite := by
-    intro x
-    have cs2 := (covSpec x).2
-    have ocs1 := (openCovSpec x).1
-    have : openCov x ∩ Function.support c.toFun ⊆ cov x ∩ Function.support c.toFun := by
-      exact inter_subset_inter ocs1 fun ⦃a⦄ a ↦ a
-    (expose_names; exact Finite.subset cs2 this)
-
-  have VSpec : ∀ x ∈ V, (openCov x ∩ Function.support c.toFun).Finite := fun x a ↦ openCovSpec' x
-
-  have m : (⋃ x ∈ V, (openCov x ∩ Function.support c.toFun)).Finite := by
-    have : ∀ (i : { x // x ∈ V }), Finite ↑((fun x ↦ openCov ↑x ∩ Function.support c.toFun) i) :=
-      fun i ↦ openCovSpec' ↑i
-    have := Set.finite_iUnion (ι := V) (f := fun x => openCov x ∩ Function.support c.toFun) this
-    simp at this
-    rwa[Eq.symm (iUnion_subtype (Membership.mem V) fun x ↦ openCov ↑x ∩ Function.support c.toFun)]
-
-
-  have : (f.base ⁻¹' {z} ∩ Function.support c) ⊆ (⋃ x ∈ V, openCov x ∩ Function.support c) := by
-    rw[Eq.symm (iUnion₂_inter (fun i j ↦ openCov i) (Function.support ⇑c))]
-    apply inter_subset_inter _ (fun ⦃a⦄ a ↦ a)
-    exact hV
-
-  exact Finite.subset m this
+  have := LocallyFinite.finite_nonempty_inter_compact (_root_.LocallyFinite.of_set_set c) cpct
+  rw[← ds c.support (f.base ⁻¹' {z})]
+  exact Finite.image Subtype.val this
 
 open Classical in
 /--
@@ -205,31 +196,22 @@ IF THE CONJECTURED "ONLY IF" IN THE ABOVE STATEMENT HOLDS, THEN THIS DEFINITION 
 SAME AS DEGREE WITH AN UNECESSARY CASE DISTINCTION ADDED IN
 -/
 noncomputable
-def mapAux {Y : Scheme} (δₓ : X → ℤ) [TopologicalSpace.isDimensionFunction δₓ]
-  (δₐy : Y → ℤ) [TopologicalSpace.isDimensionFunction δₐy] (f : X ⟶ Y) (x : X) : ℤ :=
-  if δₓ x = δₐy (f.base x) then Hom.degree f x else 0
+def mapAux {Y : Scheme} (f : X ⟶ Y) (x : X) : ℤ :=
+  if height x = height (f.base x) then Hom.degree f x else 0
 
-lemma map_locally_finite {Y : Scheme} (δₓ : X → ℤ) [TopologicalSpace.isDimensionFunction δₓ] (δy : Y → ℤ) [TopologicalSpace.isDimensionFunction δy]
+lemma map_locally_finite {Y : Scheme}
   (f : X ⟶ Y) [qc : QuasiCompact f] (c : AlgebraicCycle X) :
   ∀ z ∈ (⊤ : Set Y), ∃ t ∈ 𝓝 z, (t ∩ Function.support fun z ↦
-  ∑ x ∈ (preimageSupportFinite f c z).toFinset, (c x) * mapAux δₓ δy f x).Finite := by
+  ∑ x ∈ (preimageSupportFinite f c z).toFinset, (c x) * mapAux f x).Finite := by
   intro y hy
   have : ∃ W : Y.Opens, IsAffineOpen W ∧ y ∈ W := by
-
     obtain ⟨R, f, hf⟩ := AlgebraicGeometry.Scheme.exists_affine_mem_range_and_range_subset
       (U := ⊤) (x := y) (by aesop)
-    have := hf.1
-    let W : Y.Opens := {
-      carrier := Set.range (f.base)
-      is_open' := AlgebraicGeometry.IsOpenImmersion.isOpen_range (H := hf.1) f
-    }
-    use W
-    constructor
-    · have : IsAffineOpen (⊤ : (Spec R).Opens) := by exact isAffineOpen_top (Spec R)
-      have := AlgebraicGeometry.IsAffineOpen.image_of_isOpenImmersion (X := Spec R) (U := ⊤) (H := hf.1) this f
-      have rwl : f ''ᵁ ⊤ = W := by aesop
-      rwa[rwl] at this
-    · exact hf.2.1
+    exact ⟨Scheme.Hom.opensRange f (H := hf.1),
+          ⟨AlgebraicGeometry.isAffineOpen_opensRange f (H := hf.1) , hf.2.1⟩⟩
+
+
+
 
   obtain ⟨W, hW⟩ := this
   have affineCompact : IsCompact W.carrier := AlgebraicGeometry.IsAffineOpen.isCompact hW.1
@@ -240,73 +222,11 @@ lemma map_locally_finite {Y : Scheme} (δₓ : X → ℤ) [TopologicalSpace.isDi
     · exact hW.2
   · have cpct : IsCompact (f.base ⁻¹' W) := qc.1 W.carrier W.is_open' affineCompact
 
-    rw[isCompact_iff_finite_subcover] at cpct
-
-    let cov : f.base ⁻¹' W → Set X := by
-      intro x
-      choose U hU using c.supportLocallyFiniteWithinDomain' x (by simp)
-      exact U
-
-    have covSpec : ∀ x : f.base ⁻¹' W, cov x ∈ 𝓝 ↑x ∧ (cov x ∩ Function.support c.toFun).Finite := by
-      intro x
-      exact Classical.choose_spec (c.supportLocallyFiniteWithinDomain' (↑x) (of_eq_true (by simp)))
-
-    let openCov : f.base ⁻¹' W → Set X := by
-      intro x
-      have cs := (covSpec x).1
-      rw[_root_.mem_nhds_iff] at cs
-      choose U hU using cs
-      exact U
-
-    have openCovSpec : ∀ x : f.base ⁻¹' W, openCov x ⊆ cov x ∧ IsOpen (openCov x) ∧ ↑x ∈ (openCov x) := by
-      intro x
-      have := Classical.choose_spec (Eq.mp (congrArg (fun _a ↦ _a) (propext _root_.mem_nhds_iff)) ((covSpec x).1))
-      aesop
-
-    have covOpen : ∀ x : f.base ⁻¹' W, IsOpen (openCov x) := by
-      intro x
-      specialize openCovSpec x
-      exact openCovSpec.2.1
-
-    have covCovs : f.base ⁻¹' W ⊆ ⋃ i, openCov i := by
-      rw[subset_def]
-      intro x hx
-      have := (openCovSpec ⟨x, hx⟩).2.2
-      exact mem_iUnion_of_mem ⟨x, hx⟩ this
-
-    specialize cpct openCov covOpen covCovs
-
-    choose V hV using cpct
-
-    have openCovSpec' : ∀ x : f.base ⁻¹' W, (openCov x ∩ Function.support c.toFun).Finite := by
-      intro x
-      have cs2 := (covSpec x).2
-      have ocs1 := (openCovSpec x).1
-      have : openCov x ∩ Function.support c.toFun ⊆ cov x ∩ Function.support c.toFun := by
-        exact inter_subset_inter ocs1 fun ⦃a⦄ a ↦ a
-      (expose_names; exact Finite.subset cs2 this)
-
-    have VSpec : ∀ x ∈ V, (openCov x ∩ Function.support c.toFun).Finite := fun x a ↦ openCovSpec' x
-
-    have : (⋃ x ∈ V, (openCov x ∩ Function.support c.toFun)).Finite := by
-      have : ∀ (i : { x // x ∈ V }), Finite ↑((fun x ↦ openCov ↑x ∩ Function.support c.toFun) i) := by
-        exact fun i ↦ openCovSpec' ↑i
-      have := Set.finite_iUnion (ι := V) (f := fun x => openCov x ∩ Function.support c.toFun) this
-      have obv : (⋃ x ∈ V, openCov x ∩ Function.support c.toFun) = (⋃ i : V, openCov ↑i ∩ Function.support c.toFun) := by
-        exact
-          Eq.symm (iUnion_subtype (Membership.mem V) fun x ↦ openCov ↑x ∩ Function.support c.toFun)
-      rw[obv]
-      exact this
-
-    have : (f.base ⁻¹' W ∩ Function.support c) ⊆ (⋃ x ∈ V, openCov x ∩ Function.support c) := by
-      have : (⋃ x ∈ V, openCov x ∩ Function.support c) = ((⋃ x ∈ V, openCov x) ∩ Function.support c) := by
-        exact Eq.symm (iUnion₂_inter (fun i j ↦ openCov i) (Function.support ⇑c))
-      rw[this]
-      suffices f.base ⁻¹' W ⊆ ⋃ x ∈ V, openCov x by exact inter_subset_inter hV fun ⦃a⦄ a ↦ a
-      exact hV
-
     have pbfinite : (f.base ⁻¹' W ∩ Function.support c).Finite := by
-      (expose_names; exact Finite.subset this_1 this)
+      simp[preimageSupport]
+      have := LocallyFinite.finite_nonempty_inter_compact (_root_.LocallyFinite.of_set_set c) cpct
+      rw[← ds c.support (f.base ⁻¹' W)]
+      exact Finite.image Subtype.val this
 
     suffices (W.carrier ∩ {z : Y | (preimageSupport f c z).Nonempty}).Finite by
       apply Finite.subset this
@@ -366,18 +286,17 @@ lemma map_locally_finite {Y : Scheme} (δₓ : X → ℤ) [TopologicalSpace.isDi
       · exact ha.2.2
     exact pbfinite
 
-
 open Classical in
 noncomputable
-def map {Y : Scheme} (δₓ : X → ℤ) [TopologicalSpace.isDimensionFunction δₓ] (δy : Y → ℤ) [TopologicalSpace.isDimensionFunction δy]
+def map {Y : Scheme}
   (f : X ⟶ Y) [qc : QuasiCompact f] (c : AlgebraicCycle X) : AlgebraicCycle Y where
-  toFun z := (∑ x ∈ (preimageSupportFinite f c z).toFinset, (c x) * mapAux δₓ δy f x)
+  toFun z := (∑ x ∈ (preimageSupportFinite f c z).toFinset, (c x) * mapAux f x)
   supportWithinDomain' := by simp
-  supportLocallyFiniteWithinDomain' := fun z a ↦ map_locally_finite δₓ δy f c z a
+  supportLocallyFiniteWithinDomain' := fun z a ↦ map_locally_finite f c z a
 
 @[simp]
-lemma map_id (δₓ : X → ℤ) [TopologicalSpace.isDimensionFunction δₓ] (c : AlgebraicCycle X) :
-    map δₓ δₓ (𝟙 X) c = c := by
+lemma map_id (c : AlgebraicCycle X) :
+    map (𝟙 X) c = c := by
    ext z
    have : (c z ≠ 0 ∧ (preimageSupportFinite (𝟙 X) c z).toFinset = {z}) ∨
           (c z = 0 ∧ (preimageSupportFinite (𝟙 X) c z).toFinset = ∅) := by
@@ -391,153 +310,35 @@ lemma map_id (δₓ : X → ℤ) [TopologicalSpace.isDimensionFunction δₓ] (c
       intro h
       rw[h]
       exact o
-   suffices (map δₓ δₓ (𝟙 X) c).toFun z = c.toFun z by exact this
+   suffices (map (𝟙 X) c).toFun z = c.toFun z by exact this
    obtain h | h := this
    · simp[map, mapAux]
      rw[h.2]
-     simp[Hom.degree]
+     simp [Hom.degree]
      rfl
    · simp[map, mapAux]
      rw[h.2]
      simp[Hom.degree]
      exact h.1.symm
 
-
-def _root_.IrreducibleCloseds.order_iso_restriction {X : Type*} [TopologicalSpace X] (U : Set X)
-  (h : IsOpen U) : {V : IrreducibleCloseds X | V.carrier ∩ U ≠ ∅} ≃o IrreducibleCloseds U where
-    toFun T := {
-      carrier := Subtype.val ⁻¹' (T.1.carrier)
-      is_irreducible' := by
-        have := T.1.2
-        have : IsPreirreducible (X := U) (Subtype.val ⁻¹' (T.1.carrier)) := by
-          apply IsPreirreducible.preimage
-          · exact IsIrreducible.isPreirreducible this
-          · exact IsOpen.isOpenEmbedding_subtypeVal h
-        rw[IsIrreducible.eq_1]
-        constructor
-        · obtain ⟨T, hT⟩ := T
-          simp at hT
-          simp[Subtype.preimage_coe_nonempty]
-          suffices U ∩ T.carrier ≠ ∅ by exact nonempty_iff_ne_empty.mpr this
-          simp
-          rw[inter_comm]
-          exact hT
-        · exact this
-      is_closed' := by
-        have := T.1.3
-        exact IsClosed.preimage_val this
-    }
-    invFun T := {
-      val := {
-        carrier := closure (Subtype.val '' T.1)
-        is_irreducible' := by
-          have := T.2
-          apply IsIrreducible.closure
-          apply IsIrreducible.image this
-          apply Continuous.continuousOn
-          exact continuous_subtype_val
-        is_closed' := by
-          exact isClosed_closure
-      }
-      property := by
-        simp
-        suffices Subtype.val '' T.carrier ∩ U ≠ ∅ by
-          rw[← nonempty_iff_ne_empty] at this
-          have makelemma {s t : Set X} (h1 : s ⊆ t) (h2 : Nonempty s) : Nonempty t := by
-            obtain ⟨g, hg⟩ := h2
-            use g
-            exact h1 hg
-          have h1 : Subtype.val '' T.carrier ∩ U ⊆ closure (Subtype.val '' T.carrier) ∩ U := by
-            apply inter_subset_inter
-            · exact subset_closure
-            · rfl
-          have := Set.Nonempty.coe_sort this
-          specialize makelemma h1 this
-          exact nonempty_iff_ne_empty'.mp makelemma
-        rw[Set.image_val_inter_self_left_eq_coe]
-        have : T.carrier.Nonempty := by
-          apply IsIrreducible.nonempty
-          exact T.2
-        suffices (Subtype.val '' (T.carrier)).Nonempty by exact nonempty_iff_ne_empty.mp this
-        exact Set.Nonempty.image _ this
-    }
-    left_inv := by
-      simp[Function.LeftInverse]
-      intro T hT
-
-      suffices closure (U ∩ T.carrier) = T by exact IrreducibleCloseds.ext_iff.mpr this
-      have := T.2
-
-      #check IsPreirreducible.subset_irreducible
-      /-
-      We need to use the fact that X is irreducible here
-      -/
-      sorry
-    right_inv := sorry
-    map_rel_iff' := sorry
-
-
-@[stacks 02I4]
-lemma _root_.AlgebraicGeometry.height_eq_restrict {X : Scheme} {Z : X} (U : X.affineOpens) (hZ : Z ∈ U.1) :
-  Order.height (α := U) ⟨Z, hZ⟩ = Order.height Z := by
-  have h1 := (irreducibleSetEquivPoints (α := X)).symm
-  --rw[← Order.height_orderIso h1 Z]
-  have s : (h1 Z).1 ⊆ U := sorry
-
-
-  have := (IrreducibleCloseds.order_iso_restriction U.1.1 U.1.2).symm
-  have := Order.height_orderIso this sorry
-  --#check Z
-  --#check Order.height_orderIso (IrreducibleCloseds.order_iso_restriction U.1.1 U.1.2) ⟨Z, hZ⟩
-  sorry
-
-/-
-  The idea of this proof is that codim(Y, X) = codim(Y ∩ U, U) (stacks 02I4). So, we can replace
-  Z by an affine open neighbourhood. Then, we know that any irreducible closed subset of U = Spec R
-  (i.e. a prime ideal of R) passing through Z corresponds to a prime ideal of Rₚ. So, the codimension
-  of Z must be the same as the dimension of Rₚ, which shows our result.
-  -/
-
-
-@[stacks 02IZ]
-lemma _root_.AlgebraicGeometry.stalk_dim_of_codim {X : Scheme} (Z : X) {d : ℕ}
-  (hZ : Order.height Z = d) : ringKrullDim (X.presheaf.stalk Z) = d := by
-  have : ∃ W : X.Opens, IsAffineOpen W ∧ Z ∈ W := by
-    obtain ⟨R, f, hf⟩ := AlgebraicGeometry.Scheme.exists_affine_mem_range_and_range_subset
-      (U := ⊤) (x := Z) (by aesop)
-    have := hf.1
-    let W : X.Opens := {
-      carrier := Set.range (f.base)
-      is_open' := AlgebraicGeometry.IsOpenImmersion.isOpen_range (H := hf.1) f
-    }
-    use W
-    constructor
-    · have : IsAffineOpen (⊤ : (Spec R).Opens) := isAffineOpen_top (Spec R)
-      have := AlgebraicGeometry.IsAffineOpen.image_of_isOpenImmersion (X := Spec R) (U := ⊤) (H := hf.1) this f
-      have rwl : f ''ᵁ ⊤ = W := by aesop
-      rwa[rwl] at this
-    · exact hf.2.1
-
-  obtain ⟨W, hW⟩ := this
-  rw[← _root_.AlgebraicGeometry.height_eq_restrict ⟨W, hW.1⟩ (hW.2)] at hZ
-
-  have := AlgebraicGeometry.IsAffineOpen.isLocalization_stalk hW.1 ⟨Z, hW.2⟩
-
-  have := @IsLocalization.AtPrime.orderIsoOfPrime _ _ _ _ (X.presheaf.algebra_section_stalk ⟨Z, _⟩) _ _ this
-  simp[ringKrullDim]
-
-  have := Order.krullDim_eq_of_orderIso this
-  rw[Order.krullDim_eq_of_orderIso <| PrimeSpectrum.equivSubtype (X.presheaf.stalk Z)]
-  rw[this]
-  have := irreducibleSetEquivPoints (α := X)
-  have := PrimeSpectrum.pointsEquivIrreducibleCloseds Γ(X, W)
-  have := TopologicalSpace.IrreducibleCloseds.orderIsoSubtype (PrimeSpectrum ↑Γ(X, W))
-
-  have r := PrimeSpectrum.vanishingIdeal_isClosed_isIrreducible (R := Γ(X, W))
-  let isoNeeded : {z // z ∈ W} ≃o PrimeSpectrum ↑Γ(X, W) := sorry
-  have := Order.height_orderIso isoNeeded ⟨Z, hW.right⟩
-
-  sorry
+/--
+Pushforward preserves cycles of pure dimension `d`.
+-/
+noncomputable
+def map_homogeneneous {Y : Scheme.{u}} {d : ℕ∞} (f : X ⟶ Y) [qc : QuasiCompact f]
+  (c : HomogeneousAddSubgroup X d) : HomogeneousAddSubgroup Y d where
+    val := map f c
+    property := by
+      simp[HomogeneousAddSubgroup, IsHomogeneous]
+      intro y hy
+      have : ¬ (map f c).toFun y = 0 := hy
+      simp only [top_eq_univ, map, preimageSupport, mapAux, mul_ite, mul_zero] at this
+      obtain ⟨x, hx⟩ := Finset.exists_ne_zero_of_sum_ne_zero this
+      simp only [Finite.mem_toFinset, mem_inter_iff, mem_preimage, mem_singleton_iff,
+        Function.mem_support, ne_eq, ite_eq_right_iff, mul_eq_zero, Int.natCast_eq_zero,
+        Classical.not_imp, not_or] at hx
+      have : height x = d := c.2 x hx.1.2
+      aesop
 
 instance {X : Scheme} [IsLocallyNoetherian X] {Z : X} : IsNoetherianRing (X.presheaf.stalk Z) := by
   have : ∃ U : X.affineOpens, Z ∈ U.1 := by
@@ -556,8 +357,7 @@ instance {X : Scheme} [IsLocallyNoetherian X] {Z : X} : IsNoetherianRing (X.pres
     sorry
   obtain ⟨U, hU⟩ := this
   have := AlgebraicGeometry.IsAffineOpen.isLocalization_stalk U.2 ⟨Z, hU⟩
-  apply @IsLocalization.isNoetherianRing _ _ (U.2.primeIdealOf ⟨Z, hU⟩).asIdeal.primeCompl (X.presheaf.stalk Z) _ (X.presheaf.algebra_section_stalk ⟨Z, hU⟩) this
-  exact IsLocallyNoetherian.component_noetherian U
+  exact @IsLocalization.isNoetherianRing _ _ (U.2.primeIdealOf ⟨Z, hU⟩).asIdeal.primeCompl (X.presheaf.stalk Z) _ (X.presheaf.algebra_section_stalk ⟨Z, hU⟩) this (IsLocallyNoetherian.component_noetherian U)
 
 
 instance {X : Scheme} [IsIntegral X] {Z : X} : IsDomain (X.presheaf.stalk Z) :=
@@ -567,22 +367,57 @@ instance {X : Scheme} [IsIntegral X] {Z : X} : IsDomain (X.presheaf.stalk Z) :=
 open Multiplicative
 noncomputable
 def _root_.AlgebraicGeometry.Scheme.ord {X : Scheme} [IsIntegral X] [IsLocallyNoetherian X]
-  (Z : X) (hZ : Order.height Z = 1) : X.functionField →*₀ ℤₘ₀ :=
+  {Z : X} (hZ : Order.coheight Z = 1) : X.functionField →*₀ ℤₘ₀ :=
   have : Ring.KrullDimLE 1 ↑(X.presheaf.stalk Z) := by
     rw[Ring.krullDimLE_iff, stalk_dim_of_codim Z hZ]
   Ring.ordFrac (X.presheaf.stalk Z)
+/-
+Proof of concept, but this is a mildly insane way to write this I think.
 
+The idea is we want to compute the order of vanishing of a mermorphic section of a line bundle.
+On an integral scheme, a meromorphic section is just a section of the constant sheaf
+of value F.stalk (genericPoint X).
+
+The idea is we should have that for any x : X,
+F.stalk (genericPoint X) ≅ (F.stalk x) ⊗ X.functionField. This should be induced by the fact that
+the constant sheaf F.stalk (genericPoint X) is 𝒪.stalk (genericPoint X)
+-/
+
+def _root_.AlgebraicGeometry.Scheme.sheafOrd {X : Scheme} [IsIntegral X] [IsLocallyNoetherian X]
+  {Z : X} (hZ : Order.coheight Z = 1) (F : TopCat.Presheaf CommRingCat X)
+  [Module ↑(X.presheaf.stalk Z) ↑(F.stalk Z) ]
+  [Module.Free ↑(X.presheaf.stalk Z) ↑(F.stalk Z) ]
+  (hF : Module.rank (X.presheaf.stalk Z) (F.stalk Z) = 1) :
+  F.stalk (genericPoint X) →*₀ ℤₘ₀ := by
+    have : StrongRankCondition ↑(F.stalk Z) := sorry
+    choose s hs using rank_eq_one_iff.mp hF
+    let f : F.stalk (genericPoint X) → X.functionField := by
+      intro v
+      --obtain ⟨r, hr⟩ := hs.2 v
+
+      sorry
+
+    sorry
+
+
+lemma _root_.AlgebraicGeometry.Scheme.ord_ne_zero {X : Scheme} [IsIntegral X] [IsLocallyNoetherian X]
+  {Z : X} (hZ : Order.coheight Z = 1) {f : X.functionField} (hf : f ≠ 0) : Scheme.ord hZ f ≠ 0 := (map_ne_zero
+        (Scheme.ord hZ)).mpr
+    hf
 /-
 I'm not enitrely sure if this works or not. I think since we're working on an intetgral scheme,
 we really should have that there is no mixing of dimension and this should work fine
 -/
 noncomputable
-def div [IsIntegral X] [h : IsLocallyNoetherian X]
+def div [IsIntegral X] [IsLocallyNoetherian X]
   (f : X.functionField) (hf : f ≠ 0) : AlgebraicCycle X where
     -- TODO: Fix this definition with the new definition of order
-    toFun Z := if h : Order.height Z = 1 then WithZero.unzero hf (AlgebraicGeometry.Scheme.ord Z h f) else 0
+    toFun Z := if h : Order.coheight Z = 1
+               then WithZero.unzero (Scheme.ord_ne_zero h hf)
+               else 0
     supportWithinDomain' := by simp
-    supportLocallyFiniteWithinDomain' := by
+    supportLocallyFiniteWithinDomain' := by sorry
+      /-
       intro z hz
 
       have : ∃ U : X.Opens, ∃ f' : Γ(X, U), ∃ hU : Nonempty U,
@@ -591,7 +426,6 @@ def div [IsIntegral X] [h : IsLocallyNoetherian X]
         This is really just the universal property of colimits + the fact that the map is
         injective, so there should be nothing to say here.
         -/
-        #check AlgebraicGeometry.Scheme.RationalMap.fromFunctionField
 
         sorry
       obtain ⟨U, f', hU, hf'⟩ := this
@@ -599,7 +433,7 @@ def div [IsIntegral X] [h : IsLocallyNoetherian X]
       We want to say here that the order of vanishing of f is trivial on all points of U.
       This just follows from the order of vanshing being a homomorphism.
       -/
-      have : ∀ y ∈ U, ∀ h : height y = 1, _root_.AlgebraicGeometry.Scheme.ord y h f = 0 := sorry
+      have : ∀ y ∈ U, ∀ h : height y = 1, _root_.AlgebraicGeometry.Scheme.ord h f = 0 := sorry
       by_cases h : z ∈ U
       · /-
         This case should be easy, note that f' should not have any zeros or poles in U. So, we should
@@ -622,11 +456,11 @@ def div [IsIntegral X] [h : IsLocallyNoetherian X]
         have properClosed : XU ≠ ⊤ ∧ IsClosed XU := sorry
 
         have (y : X) (h : Order.height y = 1)
-          (hy : _root_.AlgebraicGeometry.Scheme.ord y h f ≠ 0) : closure {y} ⊆ XU :=
+          (hy : _root_.AlgebraicGeometry.Scheme.ord h f ≠ 0) : closure {y} ⊆ XU :=
 
           sorry
         have (y : X) (h : Order.height y = 1)
-          (hy : _root_.AlgebraicGeometry.Scheme.ord y h f ≠ 0) : Prop := by
+          (hy : _root_.AlgebraicGeometry.Scheme.ord h f ≠ 0) : Prop := by
           --#check (this y h hy) (closure {y})
           sorry
 
@@ -659,6 +493,7 @@ def div [IsIntegral X] [h : IsLocallyNoetherian X]
         -/
         --#check irreducibleComponent
         sorry
+        sorry-/
 
 
 
@@ -691,25 +526,29 @@ def div [IsIntegral X] [h : IsLocallyNoetherian X]
       -/
       sorry-/
 
+
 theorem div_homomorphism [IsIntegral X] [h : IsLocallyNoetherian X]
   (f : X.functionField) (hf : f ≠ 0) (g : X.functionField) (hg : g ≠ 0) :
   div (f * g) (by simp_all) = div f hf + div g hg := by
+
   ext a
-  suffices (div (f*g) (by simp_all)).toFun a = (div f hf).toFun a + (div g hg).toFun a by exact this
+  suffices (div (f*g) (by simp_all)).toFun a = (div f hf).toFun a + (div g hg).toFun a from this
   simp[div]
   split_ifs
   · rename_i ha
-    exact Scheme.ord_additive f hf g hg a ha
+    rw[← WithZero.coe_inj]
+    simp[WithZero.unzero_coe, WithZero.toMulBot]
+
+
+
+    sorry
   · rfl
 
 
 structure LocallyFiniteClosedFamily (X : Scheme.{u}) where
   {ι : Type}
+  n : Nonempty ι
   B : ι → Scheme.{u}
-  δx : X → ℤ
-  hδx : TopologicalSpace.isDimensionFunction δx
-  (δ : (i : ι) → B i → ℤ)
-  hδ : ∀ i, TopologicalSpace.isDimensionFunction (δ i)
   hB : ∀ i : ι, IsIntegral (B i)
   hB' : ∀ i : ι, IsLocallyNoetherian (B i)
   W : (i : ι) → B i ⟶ X
@@ -717,16 +556,13 @@ structure LocallyFiniteClosedFamily (X : Scheme.{u}) where
   ciW : ∀ i : ι, IsClosedImmersion (W i)
   f : (i : ι) → (B i).functionField
   hf : ∀ i : ι, f i ≠ 0
-  hW : LocallyFinite (fun i : ι ↦ (map (δ i) δx (W i) (div (f i) (hf i))).support)
+  hW : LocallyFinite (fun i : ι ↦ (map (W i) (div (f i) (hf i))).support)
 
-def _root_.LocallyFiniteClosedFamily.ofRat (δ : X → ℤ) (hδ : isDimensionFunction δ)  [ix : IsIntegral X]
+def _root_.LocallyFiniteClosedFamily.ofRat (δ : X → ℤ) [ix : IsIntegral X]
   (g : X.functionField) (hg : g ≠ 0) [iln : IsLocallyNoetherian X] : LocallyFiniteClosedFamily X where
   ι := Fin 1
+  n := instNonemptyOfInhabited
   B := fun _ ↦ X
-  δx := δ
-  hδx := hδ
-  δ i := δ
-  hδ i := hδ
   hB i := ix
   hB' i := iln
   W i := 𝟙 X
@@ -746,22 +582,23 @@ def _root_.LocallyFiniteClosedFamily.ofRat (δ : X → ℤ) (hδ : isDimensionFu
     exact Finite.of_subsingleton
 
 
-variable {ι : Type*} (B : ι → Scheme) (δx : X → ℤ) [hδx : TopologicalSpace.isDimensionFunction δx]
-    (δ : (i : ι) → B i → ℤ) [hδ : ∀ i, TopologicalSpace.isDimensionFunction (δ i)]
+variable {ι : Type*} [Nonempty ι] (B : ι → Scheme) (δx : X → ℤ)
+    (δ : (i : ι) → B i → ℤ)
     [hB : ∀ i : ι, IsIntegral (B i)]
     [hB' : ∀ i : ι, IsLocallyNoetherian (B i)]
     (W : (i : ι) → B i ⟶ X) [qcW : ∀ i, QuasiCompact (W i)]
     (f : (i : ι) → (B i).functionField) (hf : ∀ i : ι, f i ≠ 0)
-    (hW : LocallyFinite (fun i : ι ↦ (map (δ i) δx (W i) (div (f i) (hf i))).support))
+    (hW : LocallyFinite (fun i : ι ↦ (map (W i) (div (f i) (hf i))).support))
 
 variable (F : LocallyFiniteClosedFamily X)
 include hW in
+omit [Nonempty ι] in
 theorem singletonFinite (z : X) :
-    {i : ι | ((map (δ i) δx (W i) (div (f i) (hf i))).support ∩ {z}).Nonempty}.Finite := by
+    {i : ι | ((map (W i) (div (f i) (hf i))).support ∩ {z}).Nonempty}.Finite := by
   choose U hU using hW z
   have : {z} ⊆ U := singleton_subset_iff.mpr (mem_of_mem_nhds hU.1)
-  have : {i | (Function.locallyFinsuppWithin.support (map (δ i) δx (W i) (div (f i) (hf i))) ∩ {z}).Nonempty} ⊆
-      {i | ((fun i ↦ Function.locallyFinsuppWithin.support (map (δ i) δx (W i) (div (f i) (hf i)))) i ∩ U).Nonempty} := by
+  have : {i | (Function.locallyFinsuppWithin.support (map (W i) (div (f i) (hf i))) ∩ {z}).Nonempty} ⊆
+      {i | ((fun i ↦ Function.locallyFinsuppWithin.support (map (W i) (div (f i) (hf i)))) i ∩ U).Nonempty} := by
     simp[this]
     intro k l
     simp[Function.locallyFinsuppWithin.support, Function.support]
@@ -772,7 +609,6 @@ theorem singletonFinite (z : X) :
     · exact l
   exact Finite.subset hU.2 this
 
-
 set_option maxHeartbeats 0
 /--
 Given a family of closed subschemes of X (represented as an ι indexed collection of closed immersions
@@ -782,41 +618,118 @@ the sum of the pushforwards of div (f i), where f is a family of rational functi
 noncomputable
   def principalCycle : AlgebraicCycle X where
     toFun z :=
-      ∑ i ∈ (singletonFinite B δx δ W f hf hW z).toFinset,
+      ∑ i ∈ (singletonFinite B W f hf hW z).toFinset,
       (∑ x ∈ (preimageSupportFinite (W i) (div (f i) (hf i)) z).toFinset,
-      mapAux (δ i) δx (W i) x)
+      (div (f i) (hf i) x) * mapAux (W i) x)
     supportWithinDomain' := by simp
     supportLocallyFiniteWithinDomain' := by
       intro z hz
-      let fino (i : ι) := map_locally_finite (δ i) δx (W i) (div (f i) (hf i)) --(f i)
-      let un := ⋃ (i : (singletonFinite B δx δ W f hf hW z).toFinset), (fino i z hz).choose
-      #check Exists.choose_spec
+
       /-
-      This should just use choose_spec and the fact that finite unions preserve these properties
+      U is a neighbourhood of z which hits finitely many of the subvarieties on which our principal
+      cycle is defined
       -/
-      have : un ∈ 𝓝 z ∧ ∀ i : ι, (un ∩ Function.support fun z ↦ ∑ x ∈ (preimageSupportFinite (W i) (div (f i) (hf i)) z).toFinset, mapAux (δ i) δx (W i) x).Finite := sorry
-      use un
+      obtain ⟨U, hU⟩ := hW z
+
+      /-
+      fino constructs a set which intersects div (f i) in finitely many places.
+      -/
+      let fino (i : ι) := map_locally_finite (W i) (div (f i) (hf i)) --(f i)
+
+      /-
+      For each of the subvarieties hit by U, we can construct a nhd fino i z hz hitting div (f i)
+      in finitely many places. If we take the intersection of all of these nhds of z we should be
+      left with something that hits all of the div (f i) in finitely many places, where i ranges
+      over the subvarieties hitting U. We should also make sure to intersect with U, then we get
+      that our nhd of z hits the entire support in finitely many places.
+      -/
+      use (⋂ i ∈ hU.2.toFinset, (fino i z hz).choose) ∩ U
       constructor
-      · exact this.1
-      · suffices (un ∩ (⋃ (i ∈ (singletonFinite B δx δ W f hf hW z).toFinset),
-        (Function.support (fun z ↦ ∑ x ∈ (preimageSupportFinite (W i) (div (f i) (hf i)) z).toFinset,
-          mapAux (δ i) δx (W i) x)))).Finite by
-          suffices (un ∩ Function.support fun z ↦ ∑ i ∈ (singletonFinite B δx δ W f hf hW z).toFinset, ∑ x ∈ (preimageSupportFinite (W i) (div (f i) (hf i)) z).toFinset, mapAux (δ i) δx (W i) x) ⊆ un ∩ (⋃ (i ∈ (singletonFinite B δx δ W f hf hW z).toFinset), (Function.support (fun z ↦ ∑ x ∈ (preimageSupportFinite (W i) (div (f i) (hf i)) z).toFinset, mapAux (δ i) δx (W i) x))) by sorry
-          refine inter_subset_inter (fun ⦃a⦄ a ↦ a) ?_
-          --(singletonFinite B δx hδx δ hδ hB hB' W qcW f hf hW z).toFinset ?_
+      · apply Filter.inter_mem
+        · rw[Finset.iInter_mem_sets]
+          intro i hi
+          exact (fino i z hz).choose_spec.1
+        · exact hU.1
+      · /-
+        U is a set around z which intersects finitely many of the subvarieties on which we're
+        computing the rational equivalence.
+
+        Let c_i be the pushforward of div (f i) along W_i. On U, z meets finitely many c_i. And
+        we know that for all i, we can construct a neighbourhood V_i of z such that V_i instersects
+        c_i in finitely many places.
+
+        The idea is to take the finitely many i meeting U, and so take the intersection of all the
+        V_is and U. Call this new set T. T intersects finitely many c_i since it is a subset of U.
+        Further, every c_i intersects T in finitely many points since we took an intersection, so
+        we should be done.
+
+        One thing to note is that if there are no such c_i meeting U, then T will be an intersection
+        over the empty set, i.e. univ.
+        -/
 
 
-          convert Finset.support_sum (s := (singletonFinite B δx δ W f hf hW z).toFinset) (f := fun i z' ↦ ∑ x ∈ (preimageSupportFinite (W i) (div (f i) (hf i)) z').toFinset, mapAux (δ i) δx (W i) x)
+        have (i : ι) := (fino i z hz).choose_spec
+        rw[iInter_inter, iInter_inter]
+        apply @Finite.Set.finite_iInter _ _ _ _ ?_
+        intro i
 
-          sorry
-        suffices (⋃ (i ∈ (singletonFinite B δx δ W f hf hW z).toFinset), un ∩ ((Function.support (fun z ↦ ∑ x ∈ (preimageSupportFinite (W i) (div (f i) (hf i)) z).toFinset, mapAux (δ i) δx (W i) x)))).Finite by sorry
+        have ne : Nonempty (i ∈ hU.2.toFinset) := sorry
+        rw[iInter_inter, iInter_inter]
+        apply @Finite.Set.finite_iInter _ _ _ _ ?_
+        intro hi
+        rw[inter_right_comm]
+        have := (this i).2
+        suffices Finite ↑(((fino i z hz).choose ∩ ⋃ i ∈ (singletonFinite B W f hf hW z).toFinset, Function.support fun z ↦  ∑ x ∈ (preimageSupportFinite (W i) (div (f i) (hf i)) z).toFinset, (div (f i) (hf i)) x * mapAux (W i) x) ∩ U) by sorry
+        refine @Finite.Set.finite_inter_of_left _ _ _ ?_
+        rw [@inter_iUnion₂]
 
-        have := this.2
-        refine Finite.biUnion' ?_ fun i hi ↦ this i
-        apply Set.finite_mem_finset
+        --
+        #check @Finite.Set.finite_biUnion _ _ _ (singletonFinite B W f hf hW z) (fun i_1 ↦ (fino i z hz).choose ∩ Function.support fun z ↦ ∑ x ∈ (preimageSupportFinite (W i_1) (div (f i_1) (hf i_1)) z).toFinset, (div (f i_1) (hf i_1)) x * mapAux (W i_1) x) ?_
+        convert this
+
+
+        sorry
 
 
 
+
+variable {ι2 : Type*} [Nonempty ι2] (B2 : ι2 → Scheme)
+    [hB2 : ∀ i : ι2, IsIntegral (B2 i)]
+    [hB2' : ∀ i : ι2, IsLocallyNoetherian (B2 i)]
+    (W2 : (i : ι2) → B2 i ⟶ X) [qcW2 : ∀ i, QuasiCompact (W2 i)]
+    (g : (i : ι2) → (B2 i).functionField) (hg : ∀ i : ι2, g i ≠ 0)
+    (hW2 : LocallyFinite (fun i : ι2 ↦ (map (W2 i) (div (g i) (hg i))).support))
+
+/-
+It's probably more sensible to just show principal cycles form a group
+-/
+
+/--
+Morally, this should be multiplying f with g. To write this in a sensible way though, we need to
+sort out this dimension function business, because right now even if we know the
+-/
+
+def principal_mul : AlgebraicCycle X where
+  toFun Z := by
+    --let c1 := principalCycle B δx δ W f hf hW
+    --let c2 := principalCycle B2 δx2 δ2 W2 g hg hW2
+    --#check Sum.rec δ δ2
+    #check Sum.inl
+    --#check (Sum.rec (fun i ↦ Sum.inl (δ i)) (fun i ↦ Sum.inr (δ2 i)))
+
+    --#check principalCycle (Sum.rec B B2) δx  --(Sum.rec (fun i ↦ Sum.inl (δ i)) (fun i ↦ Sum.inr (δ2 i)))
+
+
+    sorry
+  supportWithinDomain' := sorry
+  supportLocallyFiniteWithinDomain' := sorry
+
+ --(principalCycle B δx δ W f hf hW) + (principalCycle B2 δx2 δ2 W2 g hg hW2) = sorry := sorry
+
+/-
+We want a theorem saying if two divisors are linearly equivalent then we can just check this by
+checking if their difference is principal.
+-/
 
 /-
 Note that here we are not actually using the fact that the morphisms in our family are closed immersions.
@@ -825,49 +738,11 @@ I think we'll need this in theorems and to make sure that this is indeed an equi
 noncomputable
 def is_rationally_equivalent (D₁ D₂ : AlgebraicCycle X) : Prop :=
   ∃ F : LocallyFiniteClosedFamily X, D₁ - D₂ =
-    have := F.hδx
-    have := F.hδ
     have := F.hB
     have := F.hB'
     have := F.qcW
-    principalCycle F.B F.δx F.δ F.W F.f F.hf F.hW
-
-
-
---set_option pp.universes true
-/-
-This is more or less just the statement that
--/
-theorem equiv_of_ratEquiv (δ : X → ℤ) (hδ : isDimensionFunction.{u} δ) [IsIntegral X] [IsLocallyNoetherian X] :
-  IsEquiv (AlgebraicCycle X) (is_rationally_equivalent (X := X)) where
-  refl := by
-    simp[is_rationally_equivalent]
-    let F : LocallyFiniteClosedFamily X := LocallyFiniteClosedFamily.ofRat δ hδ 1 (one_ne_zero)
-    use F
-
-    /-
-    Universe issues here thar need sorting out!!!
-    Should be able to use F here, but something funny is going on
-    -/
-    --use F
-    sorry
-  trans := by
-    simp[is_rationally_equivalent]
-
-    intro a b c F1 hab F2 hbc
-    /-
-    We need here that the sum of principal cycles is again principal. The idea is we want to take our new family to be the
-    union of the old two families, and for the new rational functions to be the products of the given rational functions
-    if they live on the same component, otherwise to be just the function that was there originally.
-
-    Should be locally finite by the fact that a finite union of locally finite collections should be locally finite.
-
-
-    -/
-
-
-    sorry
-  symm := sorry
+    have := F.n
+    principalCycle F.B F.W F.f F.hf F.hW
 
 
 
@@ -929,6 +804,5 @@ Could define :-
 
 
 -/
-#check (3 : ℕ∞) - ⊤
 
 end AlgebraicCycle

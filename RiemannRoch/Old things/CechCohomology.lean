@@ -1,30 +1,7 @@
-/-
-import Mathlib.Order.KrullDimension
-import Mathlib.Topology.KrullDimension
-import Mathlib.AlgebraicGeometry.Scheme
-import Mathlib.AlgebraicGeometry.Morphisms.ClosedImmersion
-import Mathlib.GroupTheory.FreeAbelianGroup
-import Mathlib.CategoryTheory.Category.Basic
-import Mathlib.CategoryTheory.Iso
-import Mathlib.Algebra.Homology.ShortComplex.Basic
-import Mathlib.Order.Hom.Basic
-import Mathlib.Algebra.Category.ModuleCat.Basic
-import Mathlib.Algebra.Homology.ShortComplex.ShortExact
-import Mathlib.AlgebraicGeometry.Properties
-import Mathlib.AlgebraicGeometry.Morphisms.UniversallyClosed
-import Mathlib.AlgebraicGeometry.Morphisms.Separated
-import Mathlib.AlgebraicGeometry.Morphisms.FiniteType
-import Mathlib.AlgebraicGeometry.Morphisms.QuasiCompact
-import Mathlib.Algebra.Category.ModuleCat.Sheaf
-import Mathlib.AlgebraicGeometry.Modules.Presheaf
-import Mathlib.Algebra.Category.ModuleCat.Sheaf.Quasicoherent
-import Mathlib.Algebra.Homology.HomologicalComplex
-import Mathlib.CategoryTheory.Category.Basic
-import Mathlib.Algebra.Homology.ShortComplex.HomologicalComplex
--/
+
 import Mathlib
-import RiemannRoch.Divisors
-import RiemannRoch.Proper
+--import RiemannRoch.Divisors
+
 
 open AlgebraicGeometry
 open SheafOfModules
@@ -66,7 +43,7 @@ def nFoldIntsMap {n : ℕ} (U : X.OpenCover) (t : Fin n → U.J) (t' : Fin (n+1)
           unfold nfoldInts
           simp
           intro i
-
+          sorry
         }
         exact { down := test }
       }
@@ -109,7 +86,7 @@ def CechComplexWithRespectToCover [HasProducts A] [Preadditive A] (U : X.OpenCov
           simp
           let obv : Fintype U.J := sorry
 
-          let mor : (Fin i → U.J) → A := fun t ↦ ∑ (t' : Fin (i+1) → U.J), by {}
+          --let mor : (Fin i → U.J) → A := fun t ↦ ∑ (t' : Fin (i+1) → U.J), by {}
           sorry
         } -- Need F applied to a bunch of restriction maps
       }
@@ -128,7 +105,7 @@ it allows us to not need to check anything about the open cover. This also works
 for an arbitrary scheme where we have an affine cover such that all intersections
 of the cover are also affine (which is immediately implied by X being separated)
 -/
-theorem QCohCohomologyWorksForAnyCover [IsSeparatedScheme X] (F : SheafOfModules X.ringCatSheaf) [IsQuasicoherent F] :
+theorem QCohCohomologyWorksForAnyCover (F : SheafOfModules X.ringCatSheaf) [IsQuasicoherent F] :
 ∀ (i : ℕ), ∃ (G : AddCommGrp),
 ∀ (U : X.AffineOpenCover),
 Nonempty ((HomologicalComplex.homology (CechComplexWithRespectToCover (AlgebraicGeometry.Scheme.AffineOpenCover.openCover U) F.val.presheaf) i) ≅ G) := sorry
