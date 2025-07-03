@@ -23,10 +23,7 @@ open AlgebraicCycle
 open Opposite
 
 universe u v
-variable (R : Type*)
-         [CommRing R]
-         (i : ℕ)
-         {X Y : Scheme.{u}}
+variable {X : Scheme.{u}}
          [IsIntegral X]
          [IsLocallyNoetherian X]
 
@@ -46,7 +43,64 @@ don't need the input cycle to be a divisor, so in this definition we just assume
 cycle.
 -/
 def AlgebraicCycle.lineBundle (D : AlgebraicCycle X) (U : X.Opens) :=
-  WithZero {s : (X.functionField)ˣ | Function.locallyFinsuppWithin.restrict (V := U) ((div s (by simp)) + D) (by simp) ≥ 0 }
+  {s : (X.functionField) |
+    (h : s ≠ 0) → (div s h) + Function.locallyFinsuppWithin.restrict (V := U) (D) (by simp) ≥ 0}
+-- With this defn. we can just say this is an add subgroup of X.functionField
+#check AddSubgroup
+noncomputable
+def as (D : AlgebraicCycle X) (U : X.Opens) : AddSubgroup (X.functionField) where
+  carrier := {s : (X.functionField) |
+    (h : s ≠ 0) → Function.locallyFinsuppWithin.restrict (V := U) ((div s h) + D) (by simp) ≥ 0}
+  add_mem' := by
+    /-
+    We're trying to show that if f and g are in our set, then f+g is.
+    Now, if either one is zero (say g = 0), then f + g = f which satisfies the property by assumption
+
+    If neither are 0, we need to show that if (f) + D ≥ 0 and (g) + D ≥ 0 then (f + g) + D ≥ 0.
+    I.e. for all x, (f + g) x + D x ≥ 0. (f + g) x = ordₓ (f + g).
+
+    Should have ordₓ (f + g) = max (ordₓ(f), ordₓ(g)) or something? Well this can't be right,
+    x + 1 does not vanish at 0 but x does. So this formula only holds if there is a root/pole at
+    x. I think we should then have that ordₓ(f + g) = ordₓ(f) ∨ ordₓ(g)
+
+    -/
+
+    intro a b ha hb
+    simp_all
+    intro h
+    /-
+    The idea here is we want
+    -/
+    wlog o : ¬ a = 0 ∧ ¬ b = 0
+    ·
+      refine this D U ha hb h ?_
+      /-
+      wlog ¬ a = 0 ∧ b = 0
+
+
+      -/
+
+      sorry
+    · sorry
+
+
+
+    /-
+    /-
+    This step is wrong, should have wlog a ≠ 0 ∧ b ≠ 0.
+    -/
+    have : ¬ (a = 0 ∧ b = 0) := by
+      aesop
+    have : ¬ a = 0 ∨ ¬ b = 0 := by exact Classical.not_and_iff_not_or_not.mp this
+    obtain h | h := this
+    · specialize ha h
+      simp[div]
+
+      sorry
+    · sorry-/
+
+  zero_mem' := sorry
+  neg_mem' := sorry
 
 instance (D : AlgebraicCycle X) (U : X.Opens) : AddCommGroup (D.lineBundle U) where
   add f g := by sorry

@@ -47,255 +47,171 @@ The map from irreducible closeds of an open subset to the whole space defined to
 closure of the image under the associated open embedding.
 -/
 def openEmbeddingMap {U X : Type*} [TopologicalSpace X] [TopologicalSpace U]
-  (f : U → X) (h : IsOpenEmbedding f) (h2 : Continuous f) :
+  (f : U → X) (h : Continuous f) :
   IrreducibleCloseds U → {V : IrreducibleCloseds X | f ⁻¹' V ≠ ∅} := by
   intro T
-  have := closure (f '' T.1)
-  refine ⟨⟨closure (f '' T.1), ?_ , ?_⟩, ?_⟩
-  · apply IsIrreducible.closure
+  refine ⟨⟨closure (f '' T.1), IsIrreducible.closure <|
+           IsIrreducible.image T.is_irreducible' f (Continuous.continuousOn h),
+           isClosed_closure⟩, ?_⟩
+  · suffices (closure T.1).Nonempty from nonempty_iff_ne_empty.mp
+      (Nonempty.mono (closure_subset_preimage_closure_image h (s := T)) this)
+    exact closure_nonempty_iff.mpr T.2.nonempty
 
-    apply IsIrreducible.image
-    exact T.is_irreducible'
-    exact Continuous.continuousOn h2
-  · exact isClosed_closure
-  · simp
-    sorry
-
-/--
-
-
-TODO: clean up this proof
--/
 lemma openEmbeddingMap_injective {U X : Type*} [TopologicalSpace X] [TopologicalSpace U]
-  (f : U → X) (h : IsOpenEmbedding f) (h2 : Continuous f) :
-  Function.Injective <| IrreducibleCloseds.openEmbeddingMap f h h2 := by
+    (f : U → X) (h : IsOpenEmbedding f) (h2 : Continuous f) :
+    Function.Injective <| IrreducibleCloseds.openEmbeddingMap f h2 := by
   intro V W hVW
-  simp[IrreducibleCloseds.openEmbeddingMap] at hVW
-  have lem (V : IrreducibleCloseds U) : f ⁻¹' (f '' V) = V := by
-    apply Function.Injective.preimage_image
-    have := h.1
-    exact this.injective
+  simp only [ne_eq, coe_setOf, openEmbeddingMap, mem_setOf_eq, Subtype.mk.injEq,
+    IrreducibleCloseds.mk.injEq] at hVW
   have : f ⁻¹' closure (f '' V) = f ⁻¹' closure (f '' W) := congrArg (preimage f) hVW
-
-  rw[IsOpenMap.preimage_closure_eq_closure_preimage (IsOpenEmbedding.isOpenMap h) h2,
-     IsOpenMap.preimage_closure_eq_closure_preimage (IsOpenEmbedding.isOpenMap h) h2] at this
-
-  rw[lem, lem] at this
-  have hV : closure V = V.1 := by
-    apply IsClosed.closure_eq
-    exact IrreducibleCloseds.isClosed V
-  rw[hV] at this
-  have hW : closure W = W.1 := by
-    apply IsClosed.closure_eq
-    exact IrreducibleCloseds.isClosed W
-  rw[hW] at this
+  simp only [h.isOpenMap.preimage_closure_eq_closure_preimage h2,
+       Function.Injective.preimage_image h.1.injective _,
+       V.isClosed.closure_eq, W.isClosed.closure_eq] at this
   exact IrreducibleCloseds.ext_iff.mpr this
 
 
 lemma openEmbeddingMap_surjective {U X : Type*} [TopologicalSpace X] [TopologicalSpace U]
-  (f : U → X) (h : IsOpenEmbedding f) (h2 : Continuous f) :
-  Function.Surjective <| IrreducibleCloseds.openEmbeddingMap f h h2 := by
+    (f : U → X) (h : IsOpenEmbedding f) (h2 : Continuous f) :
+    Function.Surjective <| IrreducibleCloseds.openEmbeddingMap f h2 := by
   intro V
   let preim : IrreducibleCloseds U := {
     carrier := f ⁻¹' V
-    is_irreducible' := sorry
-    is_closed' := sorry
+    is_irreducible' := ⟨nonempty_iff_ne_empty.mpr V.2,
+      IsPreirreducible.preimage (IsIrreducible.isPreirreducible V.1.2) h⟩
+    is_closed' := V.1.3.preimage h2
   }
   use preim
-  simp[IrreducibleCloseds.openEmbeddingMap , preim]
-  ext x
-  simp
-  /-
-  This should be the lemma we need
-  -/
-  #check subset_closure_inter_of_isPreirreducible_of_isOpen
+  simp only [ne_eq, coe_setOf, openEmbeddingMap, mem_setOf_eq, preim]
+  have : (V.1.1 ∩ range f).Nonempty := by
+    have := V.2
+    dsimp at this
+    rw[← Set.preimage_inter_range] at this
+    have : (f ⁻¹' (↑↑V ∩ range f)).Nonempty := nonempty_iff_ne_empty.mpr this
+    exact Set.nonempty_of_nonempty_preimage this
+  have lem := subset_closure_inter_of_isPreirreducible_of_isOpen (S := V.1.1) (U := range f)
+    (IsIrreducible.isPreirreducible V.1.2) (h.isOpen_range) this
+  apply eq_of_le_of_le
+  · suffices closure (f '' (f ⁻¹' ↑↑V)) ⊆ V from this
+    suffices f '' (f ⁻¹' ↑↑V) ⊆ V by
+      exact (IsClosed.closure_subset_iff (IrreducibleCloseds.isClosed V.1)).mpr this
+    exact image_preimage_subset f ↑↑V
+  · suffices V.1.1 ⊆ closure (f '' (f ⁻¹' V.1.1)) from this
+    convert lem
+    exact image_preimage_eq_inter_range
 
-  sorry
+lemma openEmbeddingMap_bijective {U X : Type*} [TopologicalSpace X] [TopologicalSpace U]
+  (f : U → X) (h : IsOpenEmbedding f) (h2 : Continuous f) :
+  Function.Bijective <| IrreducibleCloseds.openEmbeddingMap f h2 :=
+  ⟨openEmbeddingMap_injective f h h2, openEmbeddingMap_surjective f h h2⟩
 
-end IrreducibleCloseds
+lemma openEmbeddingMap_mono {U X : Type*} [TopologicalSpace X] [TopologicalSpace U]
+  (f : U → X) (h2 : Continuous f) :
+  Monotone <| IrreducibleCloseds.openEmbeddingMap f h2 := fun _ _ s ↦ closure_mono (image_mono s)
 
-def _root_.IrreducibleCloseds.order_iso_embedding {U X : Type*} [TopologicalSpace X] [TopologicalSpace U]
-  (f : U → X) (h : IsOpenEmbedding f) : {V : IrreducibleCloseds X | f ⁻¹' V ≠ ∅} ≃o IrreducibleCloseds U where
-    toFun T := {
-      carrier := f ⁻¹' T
-      is_irreducible' := by
-        have := T.1.2
-        rw[IsIrreducible.eq_1]
-        constructor
-        · have := T.2
-          simp only [ne_eq, mem_setOf_eq] at this
-          exact nonempty_iff_ne_empty.mpr this
-        · apply IsPreirreducible.preimage
-          · exact IsIrreducible.isPreirreducible this
-          · exact h
-      is_closed' := by
-        have := T.1.3
-        apply IsClosed.preimage
-        exact IsOpenEmbedding.continuous h
+lemma openEmbeddingMap_strictMono {U X : Type*} [TopologicalSpace X] [TopologicalSpace U]
+  (f : U → X) (h : IsOpenEmbedding f) (h2 : Continuous f) :
+  StrictMono <| IrreducibleCloseds.openEmbeddingMap f h2 := Monotone.strictMono_of_injective
+   (openEmbeddingMap_mono f h2) (openEmbeddingMap_injective f h h2)
+
+noncomputable
+def order_iso_embedding {U X : Type*} [TopologicalSpace X] [TopologicalSpace U]
+  (f : U → X) (h1 : IsOpenEmbedding f) (h2 : Continuous f) :
+  IrreducibleCloseds U ≃o {V : IrreducibleCloseds X | f ⁻¹' V ≠ ∅} := by
+  refine ⟨Equiv.ofBijective (openEmbeddingMap f h2) (openEmbeddingMap_bijective f h1 h2), ?_⟩
+  have := openEmbeddingMap_mono f h2 -- What's going on here?
+  refine fun a b ↦ ⟨fun h ↦ ?_, fun a_1 ↦ this a_1⟩
+  · have eq : f ⁻¹' closure (f '' a.carrier) ≤ f ⁻¹' closure (f '' b.carrier) := fun _ b ↦ h b
+    have (c : IrreducibleCloseds U) : c.carrier = f ⁻¹' (closure (f '' c.carrier)) := by
+      suffices closure c.carrier = f ⁻¹' (closure (f '' c.carrier)) by
+        nth_rewrite 1 [← IsClosed.closure_eq c.3]
         exact this
-    }
-    invFun T := {
-      val := {
-        carrier := closure (f '' T)
-        is_irreducible' := by
-          have := T.2
-          apply IsIrreducible.closure
-          apply IsIrreducible.image this
-          apply Continuous.continuousOn
-          exact IsOpenEmbedding.continuous h
-        is_closed' := by
-          exact isClosed_closure
-      }
-      property := by
-        simp
-        suffices (f ⁻¹' closure (f '' ↑T)).Nonempty by exact nonempty_iff_ne_empty.mp this
-        suffices (f ⁻¹' (f '' ↑T)).Nonempty by sorry
-        suffices (f ⁻¹' (f '' univ)).Nonempty by sorry
-        rw[Set.preimage_image_univ]
-        sorry
-    }
-    left_inv := sorry
-    right_inv := sorry
-    map_rel_iff' := sorry
-
-lemma slo {Y : Type*} [TopologicalSpace Y] {a : Y} {U : Set Y} (h : closure {a} ⊆ U) : a ∈ U := by
-  rw[subset_def] at h
-  specialize h a
-  have : a ∈ closure {a} := by exact Specializes.mem_closure fun ⦃U⦄ a ↦ a
-  specialize h this
-  exact h
-
-
-lemma _root_.Order.coheight_inter {Y : Type*} [TopologicalSpace Y] (T : IrreducibleCloseds Y)
-   (U : TopologicalSpace.Opens Y)
-  (h : T.1 ∩ U ≠ ∅) :
-  coheight T = coheight (α := {K : IrreducibleCloseds Y // K.1 ∩ U ≠ ∅}) ⟨T, h⟩ := by sorry
-#check OrderEmbedding
+      apply Topology.IsEmbedding.closure_eq_preimage_closure_image h1.isEmbedding c
+    rwa [← this a, ← this b] at eq
 
 lemma _root_.Order.coheight_eq_of_order_embedding {α β : Type*} [Preorder α] [Preorder β]
-  (f : α ↪o β) (a : α) (h : ∀ b ≥ f a, ∃ a', b = f a') : coheight a = coheight (f a) := by
-    apply eq_of_le_of_le
-    · apply Order.coheight_le_coheight_apply_of_strictMono
-      exact OrderEmbedding.strictMono f
-    · simp[coheight, height]
-      --intro p hp
-      --obtain ⟨a', ha'⟩ := h p.last hp
-      intro p hp
-      induction p using RelSeries.inductionOn generalizing a
-      · simp_all
-      · rename_i p x hx ih
-        simp
-
-        obtain ⟨a', ha'⟩ := h (p.cons x hx).last hp
-        specialize ih a h
-
-
-        sorry
+    (f : α ↪o β) (a : α) (h : ∀ p : LTSeries β, p.head = f a → ∃ p' : LTSeries α, p'.head = a ∧
+    p = p'.map f (OrderEmbedding.strictMono f)) : coheight a = coheight (f a) := by
+    apply eq_of_le_of_le <|
+      Order.coheight_le_coheight_apply_of_strictMono _ (OrderEmbedding.strictMono f) _
+    refine coheight_le_iff'.mpr (fun p hp ↦ ?_)
+    choose p' hp' using (h p hp)
+    exact hp'.2 ▸ LTSeries.map_length p' f (OrderEmbedding.strictMono f) ▸
+          (Order.coheight_eq_iSup_head_eq a) ▸
+          (ciSup_pos hp'.1 : (⨆ (_ : RelSeries.head p' = a), p'.length : ℕ∞) = p'.length) ▸
+          le_iSup (α := ℕ∞) (fun p ↦ ⨆ (_ : RelSeries.head p = a), p.length) p'
 
 
 @[stacks 02I4]
 lemma _root_.AlgebraicGeometry.coheight_eq_embedding {U X : Scheme} {Z : U} (f : U ⟶ X)
   [k : IsOpenImmersion f] : Order.coheight (f.base Z) = Order.coheight Z := by
 
-  rw[← Order.coheight_orderIso (irreducibleSetEquivPoints (α := X)).symm (f.base Z)]
-  rw[← Order.coheight_orderIso (irreducibleSetEquivPoints (α := U)).symm Z]
+  rw[← Order.coheight_orderIso (irreducibleSetEquivPoints (α := X)).symm (f.base Z),
+     ← Order.coheight_orderIso (irreducibleSetEquivPoints (α := U)).symm Z,
+     ← Order.coheight_orderIso
+    (IrreducibleCloseds.order_iso_embedding f.base k.base_open (Scheme.Hom.continuous f))
+    ((irreducibleSetEquivPoints (α := U)).symm Z)]
 
-  let rest := Order.coheight_orderIso (IrreducibleCloseds.order_iso_embedding f.base k.base_open).symm
-
-  specialize rest ((irreducibleSetEquivPoints (α := U)).symm Z)
-  rw[← rest]
-
-  let g : {V : IrreducibleCloseds X | ⇑(ConcreteCategory.hom f.base) ⁻¹' ↑V ≠ ∅}  ↪o IrreducibleCloseds X := {
+  let g : {V : IrreducibleCloseds X | ⇑(ConcreteCategory.hom f.base) ⁻¹' ↑V ≠ ∅} ↪o
+      IrreducibleCloseds X := {
     toFun V := V
     inj' := Subtype.val_injective
     map_rel_iff' := Iff.symm ge_iff_le
   }
 
-  have := Order.coheight_eq_of_order_embedding g ⟨(irreducibleSetEquivPoints (α := X)).symm (f.base Z), sorry⟩ sorry
-  simp[g] at this
-  rw [← this]
+  let a := (order_iso_embedding f.base k.base_open (Scheme.Hom.continuous f))
+      (irreducibleSetEquivPoints.symm Z)
 
-  congr
-  simp[IrreducibleCloseds.order_iso_embedding, irreducibleSetEquivPoints, OrderIso.symm]
-
-  have : f.base '' closure {Z} = closure {f.base Z} := by
-
-    have : IsOpenEmbedding f.base := sorry
-
-
-
-    ext x
-    constructor
-    · rintro ⟨m, hm⟩
-      simp_all
-      rw[← hm.2]
-      sorry
-    · intro hx
-      simp_all
-
-      sorry
-  rw[this]
-  exact closure_closure.symm
-
+  have : ∀ p : LTSeries (IrreducibleCloseds X), p.head = g a →
+         ∃ p' : LTSeries ({V : IrreducibleCloseds X | ⇑(ConcreteCategory.hom f.base) ⁻¹' ↑V ≠ ∅}),
+           p'.head = a ∧ p = p'.map g (OrderEmbedding.strictMono g) := fun p hp ↦ by
+    let p' : LTSeries {V : IrreducibleCloseds X | ⇑(ConcreteCategory.hom f.base) ⁻¹' ↑V ≠ ∅} := {
+      length := p.length
+      toFun i := {
+        val := p i
+        property := by
+          suffices  ¬⇑(ConcreteCategory.hom f.base) ⁻¹' a = ∅ by
+            rw[← Ne, ← nonempty_iff_ne_empty] at this
+            exact nonempty_iff_ne_empty.mp <|
+              Nonempty.mono (fun _ b ↦ (hp ▸ LTSeries.head_le p i) b) this
+          exact a.2
+      }
+      step := p.step
+    }
+    exact ⟨p', SetCoe.ext hp, rfl⟩
+  have := coheight_eq_of_order_embedding g
+     ((order_iso_embedding f.base k.base_open (Scheme.Hom.continuous f))
+     (irreducibleSetEquivPoints.symm Z)) this
+  convert this.symm
+  simp only [irreducibleSetEquivPoints, ne_eq, coe_setOf, mem_setOf_eq, order_iso_embedding,
+    RelIso.coe_fn_mk, Equiv.ofBijective_apply, openEmbeddingMap]
+  suffices closure {f.base Z} = closure ((f.base) '' (closure {Z})) from
+    IrreducibleCloseds.ext_iff.mpr this
+  simp [closure_image_closure (Scheme.Hom.continuous f)]
 
 @[stacks 02IZ]
-lemma _root_.AlgebraicGeometry.stalk_dim_of_codim {X : Scheme} (Z : X) {d : ℕ}
-  (hZ : Order.coheight Z = d) : ringKrullDim (X.presheaf.stalk Z) = d := by sorry
-  /-have : ∃ W : X.Opens, IsAffineOpen W ∧ closure {Z} ⊆ W := by
-    obtain ⟨R, f, hf⟩ := AlgebraicGeometry.Scheme.exists_affine_mem_range_and_range_subset
-      (U := ⊤) (x := Z) (by aesop)
-    have := hf.1
-    let W : X.Opens := {
-      carrier := Set.range (f.base)
-      is_open' := AlgebraicGeometry.IsOpenImmersion.isOpen_range (H := hf.1) f
-    }
-    use W
-    constructor
-    · have : IsAffineOpen (⊤ : (Spec R).Opens) := isAffineOpen_top (Spec R)
-      have := AlgebraicGeometry.IsAffineOpen.image_of_isOpenImmersion (X := Spec R) (U := ⊤) (H := hf.1) this f
-      have rwl : f ''ᵁ ⊤ = W := by aesop
-      rwa[rwl] at this
-    · sorry
-      --exact hf.2.1-/
-  /-
+lemma _root_.AlgebraicGeometry.stalk_dim_of_codim {X : Scheme} (Z : X) :
+  ringKrullDim (X.presheaf.stalk Z) = Order.coheight Z := by
+
   obtain ⟨R, f, hf⟩ := AlgebraicGeometry.Scheme.exists_affine_mem_range_and_range_subset
     (U := ⊤) (x := Z) (by aesop)
+  obtain ⟨y, hy⟩ := Set.mem_range.mp hf.2.1
 
+  have := hf.1
+  have := hy ▸ coheight_eq_embedding f (Z := y)
 
+  rw[this]
+  suffices ringKrullDim ((Spec R).presheaf.stalk y) = coheight y from
+    this ▸ Order.krullDim_eq_of_orderIso
+    (hy ▸ PrimeSpectrum.comapEquiv (asIso (Scheme.Hom.stalkMap f y)).commRingCatIsoToRingEquiv)
 
+  let k : Algebra ↑R ↑((Spec R).presheaf.stalk y) := StructureSheaf.stalkAlgebra (↑R) y
+  have : IsLocalization.AtPrime (↑((Spec R).presheaf.stalk y)) y.asIdeal :=
+    StructureSheaf.IsLocalization.to_stalk R y
 
-  --have hZ' : Z ∈ W := sorry
-  rw[← coheight_eq_embedding ⟨W, hW.1⟩ (hW.2)] at hZ
-
-  have := AlgebraicGeometry.IsAffineOpen.isLocalization_stalk hW.1 ⟨Z, hZ'⟩
-
-  have := @IsLocalization.AtPrime.orderIsoOfPrime _ _ _ _ (X.presheaf.algebra_section_stalk ⟨Z, _⟩) _ _ this
-  simp[ringKrullDim]
-
-
-
-  have := Order.krullDim_eq_of_orderIso this
-  rw[Order.krullDim_eq_of_orderIso <| PrimeSpectrum.equivSubtype (X.presheaf.stalk Z)]
-  simp_all only
-
-
-
-  let ip := irreducibleSetEquivPoints (α := W)
-  let pc := OrderIso.trans ((OrderIso.dualDual ((IrreducibleCloseds (PrimeSpectrum Γ(X, W)))))) (OrderIso.dual <| PrimeSpectrum.pointsEquivIrreducibleCloseds Γ(X, W)).symm
-
-
-  let ic := TopologicalSpace.IrreducibleCloseds.orderIsoSubtype (PrimeSpectrum ↑Γ(X, W))
-
-
-  have := Order.coheight_orderIso ip.symm ⟨Z, slo hW.right⟩
-  rw[← this] at hZ
-
-
-
-
-  have := Order.coheight_orderIso pc.symm
-
-  have := Order.coheight_orderIso pc.symm
-
-  have := Order.coheight_orderIso ic
-  sorry-/
+  rw [IsLocalization.AtPrime.ringKrullDim_eq_height y.asIdeal ((Spec R).presheaf.stalk y),
+     Ideal.height_eq_primeHeight y.asIdeal, Ideal.primeHeight]
+  apply WithBot.coe_eq_coe.mpr
+  congr
+  ext
+  simp only [PrimeSpectrum.instPartialOrder, PartialOrder.lift, PrimeSpectrum.le_iff_specializes,
+    OrderDual.instPreorder, OrderDual.instLE, instanceSchemePreord, specializationPreorder]
