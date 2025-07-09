@@ -55,7 +55,40 @@ def _root_.Function.locallyFinsuppWithin.extend {X Y : Type*} [TopologicalSpace 
      supportWithinDomain' := by aesop
      supportLocallyFiniteWithinDomain' := by
       intro z hz
-      sorry
+      by_cases o : z ∈ V
+      · obtain ⟨W, hW⟩ := D.supportLocallyFiniteWithinDomain' z o
+        use W
+        refine ⟨hW.1, Set.Finite.subset hW.2 ?_⟩
+        suffices (Function.support fun x ↦ if x ∈ V then D x else 0) ⊆ D.support by exact Set.inter_subset_inter (fun ⦃a⦄ a ↦ a) this
+        simp [@Function.support_subset_iff]
+      ·
+        sorry
+      /-
+      if z ∈ V, then we have this automatically by D.supportLocallyFiniteWithinDomain'. But I can't
+      think of the argument in general for why this should work for a point outside of U.
+
+      Here is the argument I think. Take an element z ∈ U \ V. Then, take some nhd W of z. For every
+      point in W that is in U, take a nhd ...
+
+
+      I don't know how we avoid taking an infinite intersection here. I'm starting to doubt this
+      works.
+
+      Take ℝ² with the usual topology, take V to be the open unit disc and V to be the disc of
+      radius 2 centred at the origin. Then, take our D to have support at (0, 0), (1/2, 0),
+      (3/4, 0), (7/8, 0),....
+
+      I.e. a sequence of points clusering up near (1, 0). This should be locally finite in V,
+      because at every point of V there is a nhd hitting only finitely many guys.
+
+      Then, extend this to U by taking the value everywhere outside of V to be 0. We then get
+      that at (1, 0) we're no longer locally finite.
+
+      So that's that I suppose, I really can't see a good way of fixing this unfortunately. One
+      way is to just work with finite rather than locally finite and restrict ourselves to the
+      quasicompact situation.
+      -/
+
 
 
 open Function locallyFinsuppWithin

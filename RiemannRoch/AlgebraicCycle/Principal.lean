@@ -5,7 +5,6 @@ import RiemannRoch.Misc.LocalFinitenessLemmas
 import RiemannRoch.Misc.AffineOpenLemma
 import RiemannRoch.Misc.Instances
 
-
 /-!
 # Algebraic Cycles
 
@@ -46,6 +45,27 @@ lemma _root_.AlgebraicGeometry.Scheme.ord_ne_zero {X : Scheme} [IsIntegral X] [I
     {Z : X} (hZ : Order.coheight Z = 1) {f : X.functionField} (hf : f ≠ 0) :
   Scheme.ord hZ f ≠ 0 := (map_ne_zero (Scheme.ord hZ)).mpr hf
 
+lemma _root_.AlgebraicGeometry.Scheme.functionField_exists_unit_nhd
+    [IsIntegral X] (f : X.functionField) (hf : f ≠ 0) :
+    ∃ U : X.Opens, ∃ f' : Γ(X, U), ∃ _ :
+    Nonempty U, X.germToFunctionField U f' = f ∧ IsUnit f' := by
+  obtain ⟨U, hU, g, hg⟩ := TopCat.Presheaf.germ_exist _ _ f
+  refine ⟨AlgebraicGeometry.Scheme.basicOpen X g,
+    TopCat.Presheaf.restrict g (AlgebraicGeometry.Scheme.basicOpen_le X g).hom, ?_⟩
+  have : Nonempty (X.basicOpen g) := by
+    have := basicOpen_eq_bot_iff g
+    simp only [Scheme.Opens.nonempty_iff]
+    suffices ¬ X.basicOpen g = ⊥ by exact
+      (Opens.ne_bot_iff_nonempty (X.basicOpen g)).mp this
+    aesop (add simp hf)
+  use this
+  have := TopCat.Presheaf.germ_res X.presheaf (Scheme.basicOpen_le X g).hom
+    (genericPoint X) (Scheme.germToFunctionField._proof_1 X (X.basicOpen g))
+  exact ⟨hg ▸ this ▸ rfl, AlgebraicGeometry.RingedSpace.isUnit_res_basicOpen X.toRingedSpace g⟩
+
+
+
+
 open Classical in
 noncomputable
 def div [IsIntegral X] [IsLocallyNoetherian X]
@@ -61,10 +81,10 @@ def div [IsIntegral X] [IsLocallyNoetherian X]
         obtain ⟨U, hU, g, hg⟩ := TopCat.Presheaf.germ_exist _ _ f
         use AlgebraicGeometry.Scheme.basicOpen X g
         use TopCat.Presheaf.restrict g (AlgebraicGeometry.Scheme.basicOpen_le X g).hom
-        have : Nonempty U := by simp[Nonempty, Set.nonempty_of_mem hU]
+        have : Nonempty U := by simp[Set.nonempty_of_mem hU]
         have : Nonempty (X.basicOpen g) := by
           have := basicOpen_eq_bot_iff g
-          simp[Nonempty, basicOpen_eq_bot_iff]
+          simp--[Nonempty, basicOpen_eq_bot_iff]
           suffices ¬ X.basicOpen g = ⊥ by exact
             (Opens.ne_bot_iff_nonempty (X.basicOpen g)).mp this
           rw[this]
@@ -115,7 +135,7 @@ def div [IsIntegral X] [IsLocallyNoetherian X]
             have := congr_arg (ordFrac ↑(X.presheaf.stalk a)) s
             simp[ordFrac_eq_ord] at this
 
-            #check ordFrac_eq_ord (X.presheaf.stalk a)
+            #check ordFrac_eq_ord (X.presheaf.stalk a) (IsLocalization.sec (nonZeroDivisors ↑(X.presheaf.stalk a)) f).2
 
 
             --suffices Scheme.ord m f = (↑(↑(0 : ℤ) : Multiplicative ℤ) : ℤₘ₀) by sorry
@@ -284,7 +304,8 @@ theorem singletonFinite (z : X) :
   have : {z} ⊆ U := singleton_subset_iff.mpr (mem_of_mem_nhds hU.1)
   have : {i | (Function.locallyFinsuppWithin.support (map (W i) (div (f i) (hf i))) ∩ {z}).Nonempty} ⊆
       {i | ((fun i ↦ Function.locallyFinsuppWithin.support (map (W i) (div (f i) (hf i)))) i ∩ U).Nonempty} := by
-    simp[this]
+    simp only [top_eq_univ, inter_singleton_nonempty, Function.mem_support, ne_eq,
+      setOf_subset_setOf]
     intro k l
     simp[Function.locallyFinsuppWithin.support, Function.support]
     rw [@inter_nonempty_iff_exists_right]
@@ -376,10 +397,6 @@ noncomputable
 
           sorry
 
-
-
-
-
 variable {ι2 : Type*} [Nonempty ι2] (B2 : ι2 → Scheme)
     [hB2 : ∀ i : ι2, IsIntegral (B2 i)]
     [hB2' : ∀ i : ι2, IsLocallyNoetherian (B2 i)]
@@ -401,7 +418,6 @@ def principal_mul : AlgebraicCycle X where
     --let c1 := principalCycle B δx δ W f hf hW
     --let c2 := principalCycle B2 δx2 δ2 W2 g hg hW2
     --#check Sum.rec δ δ2
-    #check Sum.inl
     --#check (Sum.rec (fun i ↦ Sum.inl (δ i)) (fun i ↦ Sum.inr (δ2 i)))
 
     --#check principalCycle (Sum.rec B B2) δx  --(Sum.rec (fun i ↦ Sum.inl (δ i)) (fun i ↦ Sum.inr (δ2 i)))
