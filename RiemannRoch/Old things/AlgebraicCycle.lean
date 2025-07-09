@@ -1018,7 +1018,33 @@ structure LocallyFiniteClosedFamily (X : Scheme.{u}) where
   f : (i : ι) → (B i).functionField
   hf : ∀ i : ι, f i ≠ 0
   hW : LocallyFinite (fun i : ι ↦ (map (δ i) δx (W i) (div (f i) (hf i))).support)
+/-
+Proof of concept, but this is a mildly insane way to write this I think.
 
+The idea is we want to compute the order of vanishing of a mermorphic section of a line bundle.
+On an integral scheme, a meromorphic section is just a section of the constant sheaf
+of value F.stalk (genericPoint X).
+
+The idea is we should have that for any x : X,
+F.stalk (genericPoint X) ≅ (F.stalk x) ⊗ X.functionField. This should be induced by the fact that
+the constant sheaf F.stalk (genericPoint X) is 𝒪.stalk (genericPoint X)
+-/
+
+def _root_.AlgebraicGeometry.Scheme.sheafOrd {X : Scheme} [IsIntegral X] [IsLocallyNoetherian X]
+  {Z : X} (hZ : Order.coheight Z = 1) (F : TopCat.Presheaf CommRingCat X)
+  [Module ↑(X.presheaf.stalk Z) ↑(F.stalk Z) ]
+  [Module.Free ↑(X.presheaf.stalk Z) ↑(F.stalk Z) ]
+  (hF : Module.rank (X.presheaf.stalk Z) (F.stalk Z) = 1) :
+  F.stalk (genericPoint X) →*₀ ℤₘ₀ := by
+    have : StrongRankCondition ↑(F.stalk Z) := sorry
+    choose s hs using rank_eq_one_iff.mp hF
+    let f : F.stalk (genericPoint X) → X.functionField := by
+      intro v
+      --obtain ⟨r, hr⟩ := hs.2 v
+
+      sorry
+
+    sorry
 def _root_.LocallyFiniteClosedFamily.ofRat (δ : X → ℤ) (hδ : isDimensionFunction δ)  [ix : IsIntegral X]
   (g : X.functionField) (hg : g ≠ 0) [iln : IsLocallyNoetherian X] : LocallyFiniteClosedFamily X where
   ι := Fin 1

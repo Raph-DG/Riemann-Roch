@@ -1,5 +1,5 @@
 import Mathlib
-import RiemannRoch.AlgebraicCycle
+import RiemannRoch.AlgebraicCycle.Basic
 import RiemannRoch.Divisor
 import RiemannRoch.CechCohomology
 import RiemannRoch.IsFreeAbelian
@@ -45,9 +45,5 @@ This is true since X is proper over a field.
 -/
 instance : CompactSpace X.carrier := sorry
 
---#check Γ(X, R)
 
-/--
-TODO: need some expression for the degree of D
--/
-theorem RiemannRoch : χ 𝒪(D.1) = sorry + χ 𝒪((0 : AlgebraicCycle X)) := sorry
+theorem RiemannRoch : χ 𝒪(D.1) = D.1.degree + χ 𝒪((0 : AlgebraicCycle X)) := sorry
