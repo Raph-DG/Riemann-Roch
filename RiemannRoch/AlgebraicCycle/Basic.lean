@@ -1,6 +1,5 @@
 import Mathlib
 import RiemannRoch.CodimLemma
-import RiemannRoch.IsFreeAbelian
 import RiemannRoch.Misc.LocalFinitenessLemmas
 import RiemannRoch.Misc.AffineOpenLemma
 import RiemannRoch.Misc.Instances
@@ -255,7 +254,9 @@ lemma map_id (c : AlgebraicCycle X) :
    ext z
    have : (c z ≠ 0 ∧ (preimageSupport_finite (𝟙 X) c z).toFinset = {z}) ∨
           (c z = 0 ∧ (preimageSupport_finite (𝟙 X) c z).toFinset = ∅) := by
-    simp[preimageSupport_finite, preimageSupport, Finite.toFinset]
+    simp only [top_eq_univ, ne_eq, Finite.toFinset, preimageSupport, Scheme.id.base, TopCat.hom_id,
+      ContinuousMap.coe_id, preimage_id_eq, id_eq, toFinset_eq_empty, singleton_inter_eq_empty,
+      Function.mem_support, Decidable.not_not, and_self]
     by_cases o : c z = 0
     · exact Or.inr o
     · apply Or.inl

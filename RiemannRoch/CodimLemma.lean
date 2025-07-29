@@ -13,7 +13,7 @@ open Ring
 open TopologicalSpace
 
 /-!
-# Lemas about codimension
+# Lemnas about codimension
 
 The goal of this file is to prove that the codimension of a point is equal to the krull dimension
 of the stalk at that point.
@@ -192,7 +192,7 @@ lemma AlgebraicGeometry.coheight_eq_of_openImmersion {U X : Scheme} {Z : U} (f :
 
 @[stacks 02IZ]
 lemma AlgebraicGeometry.stalk_dim_eq_coheight {X : Scheme} (Z : X) :
-  ringKrullDim (X.presheaf.stalk Z) = Order.coheight Z := by
+    ringKrullDim (X.presheaf.stalk Z) = Order.coheight Z := by
   obtain ⟨R, f, hf⟩ := AlgebraicGeometry.Scheme.exists_affine_mem_range_and_range_subset
     (U := ⊤) (x := Z) (by aesop)
   obtain ⟨y, hy⟩ := Set.mem_range.mp hf.2.1

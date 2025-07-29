@@ -2,6 +2,7 @@ import Mathlib
 import RiemannRoch.CodimLemma
 import RiemannRoch.AlgebraicCycle.Basic
 import RiemannRoch.AlgebraicCycle.Principal
+import RiemannRoch.DVR
 
 /-!
 # Weil Divisors
@@ -13,7 +14,6 @@ This definition gives good results on Noetherian, integral separated schemes whi
 codimension 1. Since our main goal is proving Riemann Roch for curves this should be enough power
 for us, but we should in the future extend these results.
 -/
-
 
 open AlgebraicGeometry
 
@@ -27,9 +27,15 @@ universe u v
 variable {X : Scheme.{u}}
          [IsIntegral X]
          [IsLocallyNoetherian X]
-
+         --(D : Function.locallyFinsuppWithin (⊤ : Set X) ℤ)
 
 noncomputable
+/-
+This definition is currently sorried because I'm not sure if I always want to assume that
+the schemes we're talking about are nonempty (which the typesignature of this definition
+implicitly assumes). This is mainly just here to make statements relating the dimension
+and codimension cleaner to state.
+-/
 def AlgebraicGeometry.Scheme.dimension (X : Scheme.{u}) : ℕ∞ :=
   WithBot.unbot (topologicalKrullDim X) sorry
 
@@ -41,56 +47,27 @@ mainly stated here because we will need this assumption to show that principal d
 class Catenary (X : Scheme.{u}) where
   dimension_coheight (x : X) : coheight x = X.dimension - height x
 
-
+/-
 open Classical in
 /--
-Given `U ⊆ V` and a fucntion locally finite on `U`, we produce a function locally finite
-on `V` by taking the original value of the function on `U` and taking `0` elsewhere.
+We note that this is distinct from locallyFinSuppWithin.restrict, since here we're restricting
+a function which is globally locally finite to some open set, and again getting something which
+is globally locally finite.
 -/
 noncomputable
-def _root_.Function.locallyFinsuppWithin.extend {X Y : Type*} [TopologicalSpace X] {U : Set X}
-  [Zero Y] {V : Set X} (D : Function.locallyFinsuppWithin V Y) (h : V ⊆ U) :
-   Function.locallyFinsuppWithin U Y where
-     toFun x := if x ∈ V then D x else 0
-     supportWithinDomain' := by aesop
-     supportLocallyFiniteWithinDomain' := by
-      intro z hz
-      by_cases o : z ∈ V
-      · obtain ⟨W, hW⟩ := D.supportLocallyFiniteWithinDomain' z o
-        use W
-        refine ⟨hW.1, Set.Finite.subset hW.2 ?_⟩
-        suffices (Function.support fun x ↦ if x ∈ V then D x else 0) ⊆ D.support by exact Set.inter_subset_inter (fun ⦃a⦄ a ↦ a) this
-        simp [@Function.support_subset_iff]
-      ·
-        sorry
-      /-
-      if z ∈ V, then we have this automatically by D.supportLocallyFiniteWithinDomain'. But I can't
-      think of the argument in general for why this should work for a point outside of U.
-
-      Here is the argument I think. Take an element z ∈ U \ V. Then, take some nhd W of z. For every
-      point in W that is in U, take a nhd ...
-
-
-      I don't know how we avoid taking an infinite intersection here. I'm starting to doubt this
-      works.
-
-      Take ℝ² with the usual topology, take V to be the open unit disc and V to be the disc of
-      radius 2 centred at the origin. Then, take our D to have support at (0, 0), (1/2, 0),
-      (3/4, 0), (7/8, 0),....
-
-      I.e. a sequence of points clusering up near (1, 0). This should be locally finite in V,
-      because at every point of V there is a nhd hitting only finitely many guys.
-
-      Then, extend this to U by taking the value everywhere outside of V to be 0. We then get
-      that at (1, 0) we're no longer locally finite.
-
-      So that's that I suppose, I really can't see a good way of fixing this unfortunately. One
-      way is to just work with finite rather than locally finite and restrict ourselves to the
-      quasicompact situation.
-      -/
-
-
-
+def AlgebraicCycle.restrict (D : AlgebraicCycle X) (U : X.Opens) : AlgebraicCycle X where
+  toFun x := if x ∈ U then D x else 0
+  supportWithinDomain' := by simp
+  supportLocallyFiniteWithinDomain' := by
+    intro z hz
+    obtain ⟨W, hW⟩ := D.supportLocallyFiniteWithinDomain' z hz
+    use W
+    refine ⟨hW.1, ?_⟩
+    apply Set.Finite.subset hW.2
+    suffices (Function.support fun x ↦ if x ∈ U then D x else 0) ⊆
+      Function.support D.toFun from Set.inter_subset_inter (fun ⦃a⦄ a ↦ a) this
+    aesop-/
+#check Function.locallyFinsuppWithin.restrict
 open Function locallyFinsuppWithin
 /--
 Below we define the sheaf 𝒪(D) associated with a Weil divisor. We note that strictly speaking you
@@ -98,26 +75,63 @@ don't need the input cycle to be a divisor, so in this definition we just assume
 cycle.
 -/
 def AlgebraicCycle.lineBundle (D : AlgebraicCycle X) (U : X.Opens) :=
-  {s : (X.functionField) |
-    (h : s ≠ 0) → (div s h) + .extend (restrict (V := U) (D) (by simp)) (by simp) ≥ 0}
+  {s : (X.functionField) | (h : s ≠ 0) → (div s h).restrict (by aesop : U.1 ⊆ ⊤) + D.restrict (by aesop : U.1 ⊆ ⊤) ≥ 0}
 
 /--
-This should be a concrete definition of 𝒪(D) ⊗ 𝒪(D'). I think this is more or less
-what we would get from just using the notion of sheafification for prelocal properties.
+This should be a concrete definition of `𝒪(D) ⊗ 𝒪(D')` (though I have no reference for this so
+it's possible this is a mistake). I think this is more or less
+what we would get from just using the notion of sheafification for prelocal properties. However,
+this API is written in terms of concrete functions, and here we have elements of the function
+field.
 
 What I like about this definition is the elements are just elements of the function field,
 which makes me think we could have a really nice notation for multiplying sections which
-plays nicely with the tensor product basically for free.
+plays nicely with the tensor product basically for free. That said, this might also be painless
+if we just use the tensor product of sheaves of modules on the nose (this, however, does not
+exist at the time of writing without a bit more work).
 -/
 def AlgebraicCycle.lineBundleTProd (D D': AlgebraicCycle X) (U : X.Opens) :=
   {s : X.functionField | ∀ z ∈ U, ∃ V : X.Opens, V.1 ⊆ U.1 ∧ z ∈ V.1 ∧
    ∃ f : D.lineBundle V, ∃ g : D'.lineBundle V, s = f * g}
 
 /--
-We can now define what we mean by 𝒪(D + D') = 𝒪(D) ⊗ 𝒪(D')
+We can now define what we mean by 𝒪(D + D') = 𝒪(D) ⊗ 𝒪(D'). I believe this should be an equality
+on the nose with the definitions we have set up, rather than just being an isomorphism.
 -/
-lemma AlgebraicCycle.picGroup (D D' : AlgebraicCycle X) (U : X.Opens) :
- AlgebraicCycle.lineBundleTProd D D' U = (D + D').lineBundle U := sorry
+lemma AlgebraicCycle.picGroup (D D' : AlgebraicCycle X) (U : X.Opens)
+    (h : ∀ x : X, coheight x = 1 → UniqueFactorizationMonoid (X.presheaf.stalk x)) :
+    AlgebraicCycle.lineBundleTProd D D' U = (D + D').lineBundle U := by
+  simp[lineBundleTProd, lineBundle]
+  ext a
+  simp only [Set.mem_setOf_eq]
+  constructor
+  · /-
+    This part should not be too bad, we just need to develop a bit of API about the restrict
+    function and the answer should essentially just fall out.
+    -/
+    intro h ha
+    suffices ∀ z ∈ U, (0 : AlgebraicCycle X) z ≤ (div a ha + (D + D').restrict U) z by sorry
+    intro z hz
+    obtain ⟨V, VU, zV, f, hf, g, hg, hfg⟩ := h z hz
+    --apply Function.locallyFinsuppWithin.ext
+    sorry
+
+  · /-
+    This part is a bit more tricky. Given a section `s` of `𝓞(D + D')`, we need to show that for any
+    `z : X`, there is a neighbourhood around which `s = f*g`, where `f` and `g` are sections of
+    `𝒪(D)` and `𝒪(D')` respectively.
+
+    In order to do this, we probably need that all local rings are UFDs.
+    This implies that there is some neighbourhood `U` around `z` where `s` is of the form `(h)|ᵤ`
+    for some rational function `h`. We also know in this context that all prime divisors of `U`
+    are just given by the prime ideals of `U`, and that these are all principal.
+    So we can factorise our rational function `h` using  the generators of these ideals.
+    -/
+    intro h z hz
+
+
+
+    sorry
 
 /-
 The question, of course, it what's the utility of having this? Indeed, this is
@@ -128,67 +142,179 @@ For that, I think we really will need the module structure, so we can't avoid th
 below so easily.
 -/
 
-/--
-This should eventually be proven. That said, it's unclear if we actually need this for RR,
-it really depends on how we do tensor product. Of course, if we want to do the most direct
-thing, then we have no choice but to prove this soon. However, if we just make some
-construction of the tensor product of two line bundles as things which are locally products
-of sections, then we could also avoid basically any business dealing with quasicoherent sheaves.
+
+/-
+This is necessary for defining the map in this direction. To weaken this we need to just define
+𝒪(D) as the inverse of the map assigning a rational section its divisor.
 -/
+variable (h' : ∀ x : X, coheight x = 1 → IsDiscreteValuationRing (X.presheaf.stalk x))
+variable (V : X.Opens)
+#check AlgebraicGeometry.functionField_isFractionRing_of_isAffineOpen
+#check Module (X.presheaf.obj (op V)) X.functionField
+#check Eq.symm
+
+--instance test (U : X.Opens) [Nonempty U] (z : X) (h : z ∈ U) : Algebra ↑Γ(X, U) ↑(X.presheaf.stalk z) := by sorry
+  --#check X.germToFunctionField U
+
+/-
+instance stower (U : X.Opens) [Nonempty U] (z : X) (h : z ∈ U) :
+  have := test U z h
+  IsScalarTower ↑Γ(X, U) ↑(X.presheaf.stalk z) ↑X.functionField := sorry-/
+
+--{s : (X.functionField) | (h : s ≠ 0) → (div s h) + restrict D U ≥ 0}
+
+
+lemma _root_.locallyFinsuppWithin.restrict_eq_within {Y : Type*} [TopologicalSpace Y] {U : Set Y}
+  {Z : Type*} [Zero Z] {V : Set Y} (D : locallyFinsuppWithin U Z) (h : V ⊆ U) (z : Y) (hz : z ∈ V) :
+  D.restrict h z = D z := dif_pos hz
+
+lemma _root_.locallyFinsuppWithin.restrict_eq_zero {Y : Type*} [TopologicalSpace Y] {U : Set Y}
+  {Z : Type*} [Zero Z] {V : Set Y} (D : locallyFinsuppWithin U Z) (h : V ⊆ U) (z : Y) (hz : z ∉ V) :
+  D.restrict h z = 0 := dif_neg hz
+
+/-
+/-, div_eq_ord_of_coheight_eq_one _ _ _ hZ, inf_le_iff,
+      Multiplicative.toAdd_le, WithZero.unzero_le_unzero, Scheme.ord]-/
+        have : IsDiscreteValuationRing ↑(X.presheaf.stalk Z) := h' Z hZ
+        have := ordFrac_add (R := X.presheaf.stalk Z) a b
+        exact inf_le_iff.mp this
+-/
+
 noncomputable
-def AlgebraicCycle.lineBundleAddSubgroup (D : AlgebraicCycle X) (U : X.Opens) :
-    AddSubgroup (X.functionField) where
-  carrier := {s : (X.functionField) |
-    (h : s ≠ 0) → Function.locallyFinsuppWithin.restrict (V := U) ((div s h) + D) (by simp) ≥ 0}
+def AlgebraicCycle.lineBundleAddSubgroup
+    (D : AlgebraicCycle X) (U : X.Opens) [Nonempty U] :
+    Submodule Γ(X, U) X.functionField where
+    --AddSubgroup (X.functionField) where
+  carrier := {s : (X.functionField) | (h : s ≠ 0) → (div s h).restrict (by aesop : U.1 ⊆ ⊤) + D.restrict (by aesop : U.1 ⊆ ⊤) ≥ 0}
   add_mem' := by
-    /-
-    We're trying to show that if f and g are in our set, then f+g is.
-    Now, if either one is zero (say g = 0), then f + g = f which satisfies the property by assumption
-
-    If neither are 0, we need to show that if (f) + D ≥ 0 and (g) + D ≥ 0 then (f + g) + D ≥ 0.
-    I.e. for all x, (f + g) x + D x ≥ 0. (f + g) x = ordₓ (f + g).
-
-    Should have ordₓ (f + g) = max (ordₓ(f), ordₓ(g)) or something? Well this can't be right,
-    x + 1 does not vanish at 0 but x does. So this formula only holds if there is a root/pole at
-    x. I think we should then have that ordₓ(f + g) = ordₓ(f) ∨ ordₓ(g).
-
-    At the very least, we know that (a + b) ⊆ (a) + (b). This means that
-    length (R / (a+b)) ≤ length (R / (a) + (b)) =?
-
-    0 -> (b) -> R / (a) -> R / (a) + (b) -> 0
-
-    WHat is ord (b)?? Is it the same thing as ord b? Well, submodules of R / (b)
-
-    => ord a = ord b + m so m = ord a. It's not ord b because we needed to be able to say
-    that b is an idela of R / (a), menaing it is contained in (a). So, we really need one
-    contained in the other for this argument.
-    -/
     intro a b ha hb
     simp_all
     intro h
-    wlog o : ¬ a = 0 ∧ ¬ b = 0
-    ·
-      refine this D U ha hb h ?_
+    by_cases ha0 : a = 0
+    · simp_all
+    by_cases hb0 : b = 0
+    · simp_all
+    intro Z
+    specialize ha ha0 Z
+    specialize hb hb0 Z
+    simp_all
+    have hU : U.1 ⊆ ⊤ := by aesop
+    suffices min ((div a ha0).restrict hU Z) ((div b hb0).restrict hU Z) ≤ (div (a + b) h).restrict hU Z by omega
+
+    by_cases hZ : coheight Z = 1
+    · have := krullDimLE_of_coheight hZ
+      by_cases o : Z ∈ U
+      · simp [locallyFinsuppWithin.restrict_eq_within _ _ _ o,
+              div_eq_ord_of_coheight_eq_one _ _ _ hZ, Scheme.ord]
+        have : IsDiscreteValuationRing ↑(X.presheaf.stalk Z) := h' Z hZ
+        have := ordFrac_add (R := X.presheaf.stalk Z) a b
+        simp_all
+      · simp [locallyFinsuppWithin.restrict_eq_zero _ _ _ o]
+    · by_cases o : Z ∈ U
+      · simp[locallyFinsuppWithin.restrict_eq_within _ _ _ o]
+        rw[div_eq_zero_of_coheight_ne_one _ _ _ hZ, div_eq_zero_of_coheight_ne_one _ _ _ hZ,
+          div_eq_zero_of_coheight_ne_one _ _ _ hZ]
+        simp
+      · simp [locallyFinsuppWithin.restrict_eq_zero _ _ _ o]
+  zero_mem' := by aesop
+  smul_mem' := by
+    intro a f hf nez z
+    simp_all
+    have h : ¬ f = 0 := by aesop (add simp nez)
+    specialize hf h z
+    simp at hf
+    have hU : U.1 ⊆ ⊤ := by aesop
+    --have af : a • f ≠ 0 := by aesop
+    suffices (div f h).restrict hU z ≤ (div (a • f) nez).restrict hU z by
+      trans (div f h).restrict hU z + D.restrict hU z
+      · exact hf
+      · exact
+        (Int.add_le_add_iff_right
+              ((locallyFinsuppWithin.restrict D (of_eq_true (Set.subset_univ._simp_1 ↑U))) z)).mpr
+          this
       /-
-      wlog ¬ a = 0 ∧ b = 0
+      trans ((div f h) z + (D.restrict U) z)
+      · exact hf
+      · exact (Int.add_le_add_iff_right ((D.restrict U) z)).mpr this-/
+    by_cases hb : coheight z = 1
+    · simp [locallyFinsuppWithin.restrict, div_eq_ord_of_coheight_eq_one _ _ _ hb]
+      simp[Scheme.ord]
+      /-
+      ordFrac_le_smul is not enough for what we want, since we want this for smul with any ring
+      for which we can define it, not just for R. Namely, Γ(X, U) is not our R, and indeed is not
+      dimension 1 (or even neccessarily Noetherian!)
       -/
-      sorry
-    · sorry
-  zero_mem' := sorry
-  neg_mem' := sorry
+      --have : IsNoetherianRing ↑Γ(X, U) := by sorry
+      --#check ordFrac_le_smul a
+      have : Ring.KrullDimLE 1 ↑(X.presheaf.stalk z) := krullDimLE_of_coheight hb
+      have : a • f = (algebraMap Γ(X, U) X.functionField) a * f := rfl
+      rw[this]
+      simp
+      by_cases k : (Ring.ordFrac ↑(X.presheaf.stalk z)) f = (0 : (WithZero (Multiplicative ℤ)))
+      · simp[k]
+
+      suffices (Ring.ordFrac ↑(X.presheaf.stalk z)) ((algebraMap ↑Γ(X, U) ↑X.functionField) a) ≥ 1 by sorry
+
+      by_cases o : z ∈ U
 
 
+      #check X.presheaf.germ U z
+      · --apply Eq.symm
+        have := X.presheaf.stalkSpecializes (sorry : genericPoint X ⤳ z) --TopCat.Presheaf.germ_stalkSpecializes o (sorry : genericPoint X ⤳ z)
+        --apply ordFrac_le_smul
+
+        sorry
+
+      · /-
+        Here we can just say that
+        -/
+        sorry
+    · simp [div_eq_zero_of_coheight_ne_one _ _ _ hb]
+
+
+  /-neg_mem' := by
+    intro a neg ha' b
+    simp_all
+    specialize neg (by aesop (add simp ha')) b
+    simp at neg
+    suffices div a (by aesop (add simp ha')) b = div (-a) ha' b by rwa [← this]
+    by_cases hb : coheight b = 1
+    · simp [div_eq_ord_of_coheight_eq_one _ _ _ hb]
+      congr 1
+      simp[Scheme.ord]
+      have : Ring.KrullDimLE 1 ↑(X.presheaf.stalk b) := krullDimLE_of_coheight hb
+      apply ordFrac_neg
+    · simp [div_eq_zero_of_coheight_ne_one _ _ _ hb]-/
+
+
+
+
+    /-
+    TODO: add that Ring.ord R x = Ring.ord R (-x) to the ord API
+    -/
+
+
+
+--instance Module (X.presheaf.val) ()
+/-
+We also want that this is an 𝒪(U) module
+-/
+/-
 instance (D : AlgebraicCycle X) (U : X.Opens) :
-         Module (X.sheaf.val.obj (op U)) (D.lineBundleAddSubgroup U) := sorry
-
-def AlgebraicCycle.lineBundleSheaf (D : AlgebraicCycle X) :
-  SheafOfModules ((sheafCompose _ (forget₂ CommRingCat RingCat)).obj X.sheaf) where
+         Module (X.sheaf.val.obj (op U)) (D.lineBundleAddSubgroup U) := sorry-/
+--SheafOfModules ((sheafCompose _ (forget₂ CommRingCat RingCat)).obj X.sheaf)
+noncomputable
+def AlgebraicCycle.lineBundleSheaf (D : AlgebraicCycle X) : X.Modules
+   where
     val := {
       obj U := by
-        simp
+        by_cases o : Nonempty ↑↑(unop U)
+        · exact ModuleCat.of (↑(X.ringCatSheaf.val.obj U)) <| AlgebraicCycle.lineBundleAddSubgroup h' D (unop U)
+        · exact ModuleCat.of (↑(X.ringCatSheaf.val.obj U)) PUnit
+      map := by
+        intro U V r
+
         sorry
-        --exact ModuleCat.of (X.sheaf.val.obj U) (D.rationalSections (Opposite.unop U))
-      map := sorry
       map_id := sorry
       map_comp := sorry
     }

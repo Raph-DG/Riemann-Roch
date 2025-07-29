@@ -2,8 +2,6 @@ import Mathlib
 import RiemannRoch.AlgebraicCycle.Basic
 import RiemannRoch.Divisor
 import RiemannRoch.CechCohomology
-import RiemannRoch.IsFreeAbelian
-
 
 
 open AlgebraicGeometry
@@ -11,7 +9,6 @@ open CategoryTheory
 open SheafOfModules
 open Module
 open CechCohomology
-open IsFreeAbelian
 
 universe w u v t
 
