@@ -42,16 +42,29 @@ lemma krullDimLE_of_coheight {X : Scheme} [IsIntegral X]
   rw [Ring.krullDimLE_iff, AlgebraicGeometry.stalk_dim_eq_coheight Z, hZ]
   rfl
 
+/--
+On a locally noetherian integral scheme, we define the order of vanishing of an element of the
+function field `f` at a point `Z` of codimension `1` to be `Ring.ordFrac (X.presheaf.stalk Z) f`.
+Because of this definition, `Scheme.ord` is valued in `ℤᵐ⁰`.
+-/
 noncomputable
 def _root_.AlgebraicGeometry.Scheme.ord {X : Scheme} [IsIntegral X] [IsLocallyNoetherian X]
     (Z : X) (hZ : Order.coheight Z = 1) : X.functionField →*₀ ℤᵐ⁰ :=
   have : Ring.KrullDimLE 1 ↑(X.presheaf.stalk Z) := krullDimLE_of_coheight hZ
   Ring.ordFrac (X.presheaf.stalk Z)
 
+/--
+The order of vanishing of a non-zero element of the function field at any point is not zero. Since
+`Scheme.ord` is valued in `ℤᵐ⁰`, `0` does not denote a value of `ℤ` but an added `⊥` element.
+-/
 lemma _root_.AlgebraicGeometry.Scheme.ord_ne_zero {X : Scheme} [IsIntegral X]
     [IsLocallyNoetherian X] {Z : X} (hZ : Order.coheight Z = 1) {f : X.functionField} (hf : f ≠ 0) :
   Scheme.ord Z hZ f ≠ 0 := (map_ne_zero (Scheme.ord Z hZ)).mpr hf
 
+/--
+For `f` an element of the function field of `X`, there exists some open set `U ⊆ X` such that
+`f` is a unit in `Γ(X, U)`.
+-/
 lemma _root_.AlgebraicGeometry.Scheme.functionField_exists_unit_nhd
     [IsIntegral X] (f : X.functionField) (hf : f ≠ 0) :
     ∃ U : X.Opens, ∃ f' : Γ(X, U), ∃ _ :
@@ -93,12 +106,54 @@ def irreducibleComponents_height_zero : irreducibleComponents X ≃o {x : X | co
   /-
   This is just a variation on the following OrderIso
   -/
-  have := OrderIso.mapSetOfMaximal
+  let f := OrderIso.mapSetOfMaximal
     (OrderIso.trans OrderIso.Set.univ (OrderIso.trans (irreducibleSetEquivPoints (α := X))
      OrderIso.Set.univ.symm))
 
   sorry
+#check IrreducibleCloseds.map
+/--
+Here, we want to relate the codimension of a point in X to a point in X \ U. For this, I suppose we
+can write some lemma about how codimension changes under an open immersion.
 
+Still, I think this is overkill for what we need here.
+
+Here, we want Subtype.val '' to give an irreducible closed set, not just a set. For this, I think
+we should define some auxilliary function.
+-/
+lemma _root_.blablo (Y : Type*) [TopologicalSpace Y] [QuasiSober Y] [T0Space Y] [IrreducibleSpace Y]
+    (U : Set Y) (hU : IsOpen U) [Nonempty U] (V : IrreducibleCloseds {x | x ∈ ⊤ ∩ U}) :
+    coheight (Subtype.val '' V.1) = coheight V + 1:= by
+  apply le_antisymm
+  · apply coheight_le
+    intro p hlast
+    wlog hlenpos : p.length ≠ 0
+    · simp_all
+    -- essentially p' := (p.drop 1).map unbot
+    let p' : LTSeries (IrreducibleCloseds ↑{x | x ∈ ⊤ ∩ U}) := {
+      length := p.length - 1
+      toFun := fun ⟨i, hi⟩ ↦ by
+        refine ⟨p ⟨i, by omega⟩, ?_, ?_⟩
+        sorry
+        /-(p ⟨i+1, by omega⟩).untop (by
+        apply ne_bot_of_gt (a := p.head)
+        apply p.strictMono
+        exact compare_gt_iff_gt.mp rfl)-/
+      step := fun i => by simpa [WithBot.unbot_lt_iff] using p.step ⟨i + 1, by omega⟩ }
+    have hlast' : p'.last = x := by
+      simp only [p', RelSeries.last, WithBot.unbot_eq_iff, ← hlast, Fin.last]
+      congr
+      omega
+    suffices p'.length ≤ height p'.last by
+      simpa [p', hlast'] using this
+    apply length_le_height_last
+  · rw [height_add_const]
+    apply iSup₂_le
+    intro p hlast
+    let p' := (p.map _ WithBot.coe_strictMono).cons ⊥ (by simp)
+    apply le_iSup₂_of_le p' (by simp [p', hlast]) (by simp [p'])
+
+-- lemma blo [IsIntegral X] (x : X)
 
 
 open Classical in
@@ -169,19 +224,31 @@ def div [IsIntegral X] [IsLocallyNoetherian X]
           (x := z) (U := ⊤) (by aesop)
         use W
         refine ⟨IsOpen.mem_nhds (Opens.isOpen W) hW.2.1, ?_⟩
+
+
         /-
         We want to somehow say that elements of this intersection must be irreducible components.
-        I think this should just be another application of our lemma in codimlemmas
+        I think this should just be another application of our lemma in codimlemmas.
+
+        What did I mean by this? Well, I'm not entirely sure, but the argument here should be that
+        irreducible components are precisely the points of codimension 0. And it should be the
+        case that the points of codimension 0 in `X \ U` are precisely the points of codimension 1
+        in `X` outside of `U`.
+
 
         -/
 
-        /-
-        With these things this should be pretty close from here
-        -/
 
-        -- I'm not sure why I need this let but inlining seems to give an error
         let thing := W.1 ∩ XU
-        have : (irreducibleComponents thing).Finite := sorry
+
+        have : NoetherianSpace thing := sorry
+        have : (irreducibleComponents thing).Finite :=
+          TopologicalSpace.NoetherianSpace.finite_irreducibleComponents
+
+
+
+
+
         --rw[AlgebraicCycle.irreducibleComponents_height_zero] at this
         --suffices (@irreducibleComponents (W.1 ∩ XU) sorry ).Finite by sorry
         #check IrreducibleCloseds.map'OrderIso
