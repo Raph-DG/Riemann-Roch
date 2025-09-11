@@ -13,7 +13,7 @@ open Ring
 open TopologicalSpace
 
 /-!
-# Lemnas about codimension
+# Lemmas about codimension
 
 The goal of this file is to prove that the codimension of a point is equal to the krull dimension
 of the stalk at that point.

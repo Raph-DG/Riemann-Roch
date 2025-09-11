@@ -1,4 +1,4 @@
-import Mathlib
+--import Mathlib
 import RiemannRoch.OrderOfVanishing.OrdLemmas
 --import Plausible
 
@@ -12,22 +12,25 @@ zero divisor rather than the second.
 -/
 lemma ord_mul' (R : Type u_1) [CommRing R] {a b : R} (ha : a ∈ nonZeroDivisors R) :
     ord R (a * b) = ord R a + ord R b := by
-  rw[mul_comm, ord_mul R ha, add_comm]
+  rw [mul_comm, ord_mul R ha, add_comm]
 
 /--
-For a `x : R` a non zero divisor, the `ord R (x^n)` is `n • ord R x`.
+For `x : R` a non zero divisor, `ord R (x^n) = n • ord R x`.
 -/
 @[simp]
 theorem ord_pow (x : R) (hx : x ∈ nonZeroDivisors R) (n : ℕ) : ord R (x ^ n) = n • ord R x := by
   induction n with
   | zero => simp
   | succ n ih =>
-    rw[pow_succ, ord_mul, ih, succ_nsmul]
+    rw [pow_succ, ord_mul, ih, succ_nsmul]
     exact hx
 
+/--
+For `x : R` a non zero divisor, `ord R (-x) = ord R x`.
+-/
 @[simp]
-lemma ord_neg (x : R) :  Ring.ord R (-x) = Ring.ord R x:= by
-  simp [Ring.ord]
+lemma ord_neg (x : R) : ord R (-x) = ord R x:= by
+  simp only [ord]
   congr 2
   all_goals exact Ideal.span_singleton_neg x
 
@@ -37,8 +40,8 @@ of `a • x` for `a` a unit in `S`.
 -/
 @[simp]
 lemma ord_smul {S : Type*} [CommRing S] [Algebra S R]
-    (a : S) (h : IsUnit a) (x : R) : Ring.ord R (a • x) = Ring.ord R x := by
-  simp [Ring.ord]
+    (a : S) (h : IsUnit a) (x : R) : ord R (a • x) = ord R x := by
+  simp only [ord]
   have : a • x = algebraMap S R a * x := by
     exact Algebra.smul_def a x
   rw [this]
@@ -51,11 +54,11 @@ lemma ord_smul {S : Type*} [CommRing S] [Algebra S R]
 /--
 In an `S` algebra `R`, the order of vanishing of `x : R` is less than or equal
 to the order of vanishing of `a • x` for any `a : S`. One should note that the order here
-is the order on `ℕ∞`.
+is the order on `ℕ∞` where `∞` is a top element.
 -/
 lemma ord_le_smul {S : Type*} [CommRing S] [Algebra S R] (a : S) (x : R) :
-    Ring.ord R x ≤ Ring.ord R (a • x) := by
-  simp[Ring.ord]
+    ord R x ≤ ord R (a • x) := by
+  simp only [ord]
   suffices Ideal.span {a • x} ≤ Ideal.span {x} by
     let g : (R ⧸ Ideal.span {a • x}) →ₗ[R] (R ⧸ Ideal.span {x}) := Submodule.factor this
     refine Module.length_le_of_surjective (Submodule.factor this) (Submodule.factor_surjective this)
@@ -116,7 +119,7 @@ theorem ord_irreducible (ϖ : R) (hϖ : Irreducible ϖ) : ord R ϖ = 1 := by
     rw [← aux] at this
     simpa only [Submodule.mem_bot, @Ideal.Quotient.eq_zero_iff_mem]
   simpa [J] using hx
-
+#min_imports
 /--
 In a discrete valuation ring `R`, if the order of vansihing of `x` and `y` is
 the same then `x` and `y` must be associated.
@@ -134,7 +137,8 @@ lemma associated_of_ord_eq (x y : R) (hx : x ≠ 0) (hy : y ≠ 0)
   all_goals aesop
 
 /--
-For `a b : R`, `min (ord R x) (ord R y) ≤ ord R (x + y)`. It should be noted that the order
+For `x y : R` where `R` is a discrete vakuation ring, we have that
+`min (ord R x) (ord R y) ≤ ord R (x + y)`. It should be noted that the order
 we're using here is the order on `ℕ∞`, where `⊤` is greater than everhing else.
 This is relevant since when we're working with `ordFrac` we work with `ℤᵐ⁰`, where the
 order instance has the `0` element less than everything else.
@@ -222,20 +226,40 @@ lemma ordFrac_le_smul {S : Type*} [CommRing S] [Algebra S R] [Algebra S K]
 
 end ordFrac
 
-#check WithTop.map
-#check WithZero.exp
+/-
+This is in another file
 
 lemma ord_cast_mono : Monotone <|
     (WithZero.map' (AddMonoidHom.toMultiplicative (Nat.castAddMonoidHom ℤ))) := by
   intro a b h
   apply WithZero.map'_mono ?_ h
   intro x y hy
-  simp_all
+  simp_all-/
+
+
+section experiment
+
+/-
+This section is an attempt to make some lemmas which make working with
+WithZero (Multiplicative A) a little bit less painful.
+
+(The kind of pain I'm referring to can be seen in the current proof of
+ordFrac_add, which does a lot of rewriting manually).
+-/
 
 lemma WithZero.map_eq_top_map {α : Type*} {β : Type*} [MulOneClass α] [MulOneClass β] (f : α →* β) :
     (WithZero.map' f).toFun = WithTop.map f.toFun := by
-  simp[WithZero.map', WithTop.map, WithZero.lift']
-  aesop
+  simp only [map', lift', Equiv.coe_fn_mk, MonoidHom.coe_comp, Function.comp_apply,
+    coeMonoidHom_apply, ZeroHom.toFun_eq_coe, ZeroHom.coe_mk, WithTop.map, OneHom.toFun_eq_coe,
+    MonoidHom.toOneHom_coe]
+  ext x : 1
+  split
+  next x =>
+    simp_all only [Option.map_none]
+    rfl
+  next x a =>
+    simp_all only [Option.map_some]
+    rfl
 
 lemma ord_cast_mono_top : @Monotone _ _ (by infer_instance : Preorder (WithTop (Multiplicative ℕ)))
     (by infer_instance : Preorder (WithTop (Multiplicative ℤ))) <|
@@ -283,6 +307,7 @@ lemma WithZero.multiplicative_coe_add {α : Type u_1} [Add α] (a b : α) :
     WithZero.coe (Multiplicative.ofAdd (a + b)) =
     WithZero.coe (Multiplicative.ofAdd a) * WithZero.coe (Multiplicative.ofAdd b) := rfl
 
+end experiment
 
 set_option maxHeartbeats 0
 /--
@@ -335,6 +360,7 @@ theorem ordFrac_add [IsNoetherianRing R] [KrullDimLE 1 R] [IsDiscreteValuationRi
       rw[← IsLocalization.mk'_sec (M := nonZeroDivisors R) K x,
          ← IsLocalization.mk'_sec (M := nonZeroDivisors R) K y] at h
       simpa using h
+    simp at this
     field_simp [x1, x2, y1, y2] at this
 
     rw[← map_mul, ← map_mul, ← map_add] at this
@@ -389,8 +415,6 @@ theorem ordFrac_add [IsNoetherianRing R] [KrullDimLE 1 R] [IsDiscreteValuationRi
 /--
 In a discrete valuation ring `R` with fraction ring `K`, if `x y : K` and
 `ordFrac R x = ordFrac R y`, then `x` must only differ from `y` by a unit of `R`.
-
-Todo: Fill in sorries. They should be relatively manageable from here.
 -/
 theorem associated_of_ordFrac_eq [IsNoetherianRing R] [KrullDimLE 1 R] [IsDiscreteValuationRing R]
     {K : Type*} [Field K] [Algebra R K] [IsFractionRing R K] (x y : K) (hx : x ≠ 0) (hy : y ≠ 0)
@@ -464,3 +488,51 @@ theorem associated_of_ordFrac_eq [IsNoetherianRing R] [KrullDimLE 1 R] [IsDiscre
       grind
     all_goals aesop
   all_goals aesop
+
+
+--#check HSMul
+open AlgebraicGeometry
+variable (X : Scheme) [IsIntegral X] (z : X) (U : X.Opens) (h : z ∈ U)
+noncomputable local instance : Algebra ↑Γ(X, U) ↑(X.presheaf.stalk z) := (X.presheaf.germ U z h).hom.toAlgebra in
+theorem test (X : Scheme) [IsIntegral X] (z : X) (U : X.Opens) (h : z ∈ U) (f g : Γ(X, U))
+    [Nonempty U] (u : Γ(X, U))
+    (hfg :
+      let alg : Algebra ↑Γ(X, U) ↑(X.presheaf.stalk z) := (X.presheaf.germ U z h).hom.toAlgebra
+      @algebraMap Γ(X, U) (X.presheaf.stalk z) _ _ (X.presheaf.germ U z h).hom.toAlgebra f = (u • (@algebraMap Γ(X, U) (X.presheaf.stalk z) _ _ (X.presheaf.germ U z h).hom.toAlgebra g) : X.presheaf.stalk z))
+    : f = u * g := by
+  let alg : Algebra ↑Γ(X, U) ↑(X.presheaf.stalk z) :=
+        (X.presheaf.germ U z h).hom.toAlgebra
+  have : u • algebraMap (Γ(X, U)) (X.presheaf.stalk z) g =
+    algebraMap (Γ(X, U)) (X.presheaf.stalk z) u *
+    algebraMap (Γ(X, U)) (X.presheaf.stalk z) g := rfl
+
+  simp_rw [this] at hfg
+
+  have : algebraMap (Γ(X, U)) (X.presheaf.stalk z) u *
+    algebraMap (Γ(X, U)) (X.presheaf.stalk z) g =
+    algebraMap (Γ(X, U)) (X.presheaf.stalk z) (u * g) := by exact Eq.symm (algebraMap.coe_mul u g)
+  rw[this] at hfg
+  have : Function.Injective (algebraMap ↑Γ(X, U) ↑(X.presheaf.stalk z)) :=
+    AlgebraicGeometry.germ_injective_of_isIntegral X z h
+  exact this hfg
+/-
+Let X be a scheme and z a point of X. If f and g are elements of `Γ (X, U)`
+for `U` some open s.t. `z ∈ U`, and we have that:
+`algebraMap (Γ (X, U)) (X.presheaf.stalk z) f = u • algebraMap (Γ (X, U)) (X.presheaf.stalk z) g`
+for some `u` a unit in `Γ (X, U)`, then we should have that `f = u • g`
+
+Well, `u • algebraMap (Γ (X, U)) (X.presheaf.stalk z) g =`
+      `algebraMap (Γ (X, U)) (X.presheaf.stalk z) u *`
+      `algebraMap (Γ (X, U)) (X.presheaf.stalk z) g`
+      `= algebraMap (Γ (X, U)) (X.presheaf.stalk z) (u * g)`
+
+And since algebraMap ought to be injective, I think this means we get `f = u*g`.
+So perhaps we win without much further playing.
+
+If that's the case, we then have a notion of tensor product which is good as.
+We then need to implement the fundamental exact sequence,
+0 → 𝒪ₓ(-D) -> 𝒪ₓ -> 𝒪ₐ -> 0
+
+-/
+
+#min_imports

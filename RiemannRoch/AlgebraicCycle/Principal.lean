@@ -112,28 +112,69 @@ def irreducibleComponents_height_zero : irreducibleComponents X ≃o {x : X | co
 
   sorry
 #check IrreducibleCloseds.map
-/--
+
+
+/-
+It's not necessarily the case that the image of the subtype map will be closed. It's not going to
+suddenly become multiple irreducible components, but I think in the carrier we'll have to take
+a closure.
+
+I think the irreducibility will be on loogle somewhere, search when in wifi again.
+It should just be the proof in Irred
+-/
+def IrreducibleCloseds.subtype_val {α : Type*} [TopologicalSpace α] {p : α → Prop}
+    (V : IrreducibleCloseds (Subtype p)) : IrreducibleCloseds α where
+      carrier := closure <| Subtype.val '' V.1
+      is_irreducible' := by
+        #check V.is_irreducible'.image
+        /-
+        If we can get the below apply working, this should reduce to showing that
+        closure ∘ Subtype.val '' _ is continuous, which is definitely somewhere in the
+        library.
+        -/
+        --apply V.is_irreducible'.image
+        sorry
+      is_closed' := isClosed_closure
+
+/-
+
 Here, we want to relate the codimension of a point in X to a point in X \ U. For this, I suppose we
 can write some lemma about how codimension changes under an open immersion.
 
 Still, I think this is overkill for what we need here.
 
+We want to say that the coheight of any element must be witnessed by a chain containing the top
+element. I think this formulation below (modulo problems with the coheight not being precisely
+what we're looking for) is actually true. The reason being that an the closure of an
+open subset of an irreducible space must be that space I think.
+
 Here, we want Subtype.val '' to give an irreducible closed set, not just a set. For this, I think
 we should define some auxilliary function.
--/
+
 lemma _root_.blablo (Y : Type*) [TopologicalSpace Y] [QuasiSober Y] [T0Space Y] [IrreducibleSpace Y]
-    (U : Set Y) (hU : IsOpen U) [Nonempty U] (V : IrreducibleCloseds {x | x ∈ ⊤ ∩ U}) :
-    coheight (Subtype.val '' V.1) = coheight V + 1:= by
+    (U : Set Y) (hU : IsOpen U) [Nonempty U] (V : IrreducibleCloseds {x | x ∈ U}) :
+    coheight (IrreducibleCloseds.subtype_val V) = coheight V + 1:= by
   apply le_antisymm
   · apply coheight_le
     intro p hlast
     wlog hlenpos : p.length ≠ 0
     · simp_all
     -- essentially p' := (p.drop 1).map unbot
-    let p' : LTSeries (IrreducibleCloseds ↑{x | x ∈ ⊤ ∩ U}) := {
+    let p' : LTSeries (IrreducibleCloseds ↑{x | x ∈ U}) := {
       length := p.length - 1
       toFun := fun ⟨i, hi⟩ ↦ by
-        refine ⟨p ⟨i, by omega⟩, ?_, ?_⟩
+        #check p ⟨i, by omega⟩
+        let testing := p ⟨i, by omega⟩
+        constructor
+        · sorry
+        · sorry --refine ⟨p ⟨i, by omega⟩, ?_⟩
+        · sorry
+          --exact ⟨p ⟨i, by omega⟩, sorry⟩
+        /-
+        Idk why we called it hlast, must be a relic of the dualized version.
+
+        -/
+        --refine ⟨⟨p ⟨i, by omega⟩, ?_⟩ , ?_, ?_⟩
         sorry
         /-(p ⟨i+1, by omega⟩).untop (by
         apply ne_bot_of_gt (a := p.head)
@@ -151,14 +192,94 @@ lemma _root_.blablo (Y : Type*) [TopologicalSpace Y] [QuasiSober Y] [T0Space Y] 
     apply iSup₂_le
     intro p hlast
     let p' := (p.map _ WithBot.coe_strictMono).cons ⊥ (by simp)
-    apply le_iSup₂_of_le p' (by simp [p', hlast]) (by simp [p'])
+    apply le_iSup₂_of_le p' (by simp [p', hlast]) (by simp [p'])-/
 
+
+
+
+#check coheight_coe_withTop
 -- lemma blo [IsIntegral X] (x : X)
+
+/-
+With a bit of luck we can now use this to show that if we have some proper closed subset of an
+integral scheme, then codimension 1 points lying on our set have codimension 0 when measured on
+just the proper closed subset.
+-/
+lemma coheight_zero_of_coheight_one_of_strictMono
+    {α β: Type*} [Preorder α] [Preorder β] (f : WithTop α → β) (hf : StrictMono f) (x : α)
+    (h : coheight (f x) = 1) : coheight x = 0 := by
+  suffices coheight (x : WithTop α) = 1 by
+    simp at this
+    by_cases m : coheight x = ⊤
+    · rw[m] at this
+      contradiction
+    · push_neg at m
+      rw [ENat.ne_top_iff_exists] at m
+      obtain ⟨a, ha⟩ := m
+      rw[← ha] at this ⊢
+      have dumb: (1 : ℕ∞) = ↑(1 : ℕ) := rfl
+      rw[dumb] at this
+      rw [← ENat.coe_add, ENat.coe_inj] at this
+      simpa using this
+
+  have : coheight (f x) ≥ coheight (x : WithTop α) :=
+    coheight_le_coheight_apply_of_strictMono f hf ↑x
+  rw [h] at this
+  apply le_antisymm
+  · exact this
+  · simp
+
+
+#check genericPoint
+/-
+This would be more general if we, instead of taking as input points of X, took in sets. Then we
+could just send our ⊤ element to the whole space X instead of needing a generic point to send ⊤ to.
+
+-/
+noncomputable
+def som {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y] [QuasiSober Y] [IrreducibleSpace Y]
+    (f : X → Y) : WithTop X → Y := by
+  intro a
+  by_cases h : a = ⊤
+  · exact genericPoint Y
+  · exact f (WithTop.untop a h)
+
+lemma dsa {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y] [QuasiSober Y] [IrreducibleSpace Y]
+    (f : X → Y) (hf : @StrictMono _ _ (specializationPreorder X) (specializationPreorder Y) f) :
+    @StrictMono _ _ (@WithTop.preorder _ (specializationPreorder X)) (specializationPreorder Y)
+    (som f) := sorry
+
+#check irreducibleComponents
+
+local instance (X : Type*) [TopologicalSpace X] : Preorder X := specializationPreorder X in
+def fdb {X : Type*} [TopologicalSpace X] [QuasiSober X] [T0Space X] :
+    {x : X | coheight x = 0} ≃ irreducibleComponents X where
+      toFun := by
+        rintro ⟨x, hx⟩
+        refine ⟨closure {x}, ?_⟩
+
+        #check OrderIso.setOfMinimalIsoSetOfMaximal
+
+        sorry
+      invFun := sorry
+      left_inv := sorry
+      right_inv := sorry
+
+
+  /-rw [irreducibleComponents_eq_maximals_closed]
+  constructor
+
+  simp
+  let m := TopologicalSpace.IrreducibleCloseds.orderIsoSubtype' X
+
+
+
+  sorry-/
 
 
 open Classical in
 noncomputable
-def div [IsIntegral X] [IsLocallyNoetherian X]
+def div [IsIntegral X] [nt : IsLocallyNoetherian X]
   (f : X.functionField) (hf : f ≠ 0) : AlgebraicCycle X where
     toFun Z := if h : Order.coheight Z = 1
                then Multiplicative.toAdd <| WithZero.unzero (Scheme.ord_ne_zero h hf)
@@ -240,21 +361,27 @@ def div [IsIntegral X] [IsLocallyNoetherian X]
 
 
         let thing := W.1 ∩ XU
+        have ntW : NoetherianSpace W := by
+          have : IsAffine W := hW.1
+          have : IsNoetherianRing ↑Γ(↑W, ⊤) := by
+            have := nt.1 ⟨W, hW.1⟩
+            simp_all
+            convert this
 
-        have : NoetherianSpace thing := sorry
+            sorry
+          exact AlgebraicGeometry.noetherianSpace_of_isAffine
+        have ntt : NoetherianSpace thing := by
+          have : thing ⊆ W := by exact inter_subset_left
+          --exact TopologicalSpace.NoetherianSpace.set (thing : Set W)
+          --have := TopologicalSpace.NoetherianSpace.set (thing : Set W)
+          sorry
         have : (irreducibleComponents thing).Finite :=
           TopologicalSpace.NoetherianSpace.finite_irreducibleComponents
+        suffices {z ∈ thing | coheight z = 1}.Finite by sorry
 
+        suffices (irreducibleComponents ↑thing).Finite by sorry
+        exact this
 
-
-
-
-        --rw[AlgebraicCycle.irreducibleComponents_height_zero] at this
-        --suffices (@irreducibleComponents (W.1 ∩ XU) sorry ).Finite by sorry
-        #check IrreducibleCloseds.map'OrderIso
-        #check TopologicalSpace.NoetherianSpace.finite_irreducibleComponents
-
-        sorry
 
 lemma div_eq_zero_of_coheight_ne_one [IsIntegral X] [IsLocallyNoetherian X] (f : X.functionField)
     (hf : f ≠ 0) (Z : X) (hZ : coheight Z ≠ 1) : div f hf Z = 0 := dif_neg hZ

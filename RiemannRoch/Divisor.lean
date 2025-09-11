@@ -82,7 +82,8 @@ don't need the input cycle to be a divisor, so in this definition we just assume
 cycle.
 -/
 def AlgebraicCycle.lineBundle (D : AlgebraicCycle X) (U : X.Opens) :=
-  {s : (X.functionField) | (h : s ≠ 0) → (div s h).restrict (by aesop : U.1 ⊆ ⊤) + D.restrict (by aesop : U.1 ⊆ ⊤) ≥ 0}
+  {s : (X.functionField) | (h : s ≠ 0) →
+  (div s h).restrict (by aesop : U.1 ⊆ ⊤) + D.restrict (by aesop : U.1 ⊆ ⊤) ≥ 0}
 
 lemma _root_.locallyFinsuppWithin.restrict_eq_within {Y : Type*} [TopologicalSpace Y] {U : Set Y}
     {Z : Type*} [Zero Z] {V : Set Y} (D : locallyFinsuppWithin U Z)
@@ -110,6 +111,23 @@ exist at the time of writing without a bit more work).
 def AlgebraicCycle.lineBundleTProd (D D': AlgebraicCycle X) (U : X.Opens) :=
   {s : X.functionField | ∀ z ∈ U, ∃ V : X.Opens, V.1 ⊆ U.1 ∧ z ∈ V.1 ∧
    ∃ f : D.lineBundle V, ∃ g : D'.lineBundle V, s = f * g}
+
+/-
+What's the argument here?
+
+We know that if the divisors are equal, then for every z in X, we have that
+ordFrac (stalk z) f = ordFrac (stalk z) g, which we know implies that
+f = u • g for some u a unit in stalk z.
+
+This all should imply there is some u which is a unit in every stalk, so we should
+be able to get a unit globally. I think this is true.
+We need to show that this implies there is some unit u in Γ(X, ⊤) s.t. f = u • g.
+
+-/
+theorem AlgebraicCycle.sdfuhs (f g : X.functionField)
+  (fnez : f ≠ 0) (gnez : g ≠ 0) (h : div f fnez = div g gnez) :
+  let alg : Algebra Γ(X, ⊤) X.functionField := sorry
+  ∃ u : Γ(X, ⊤), IsUnit u ∧ f = u • g := sorry
 
 /--
 We can now define what we mean by 𝒪(D + D') = 𝒪(D) ⊗ 𝒪(D'). I believe this should be an equality
@@ -202,6 +220,7 @@ lemma AlgebraicCycle.picGroup (D D' : AlgebraicCycle X) (U : X.Opens)
       · use f
         constructor
         · intro hf
+
           sorry
         · use g
           constructor
@@ -228,6 +247,17 @@ lemma AlgebraicCycle.picGroup (D D' : AlgebraicCycle X) (U : X.Opens)
             At this point we know that (a) = (f * g), and I claim that this should mean that this
             must mean that there is some u1 and u2 such that a = u1*f * u2*g. So we need to come
             up with even more order of vanishing api I think.
+
+
+
+
+            We know that for any z, ord f z = ord g z implies f and g differ by a unit in R
+            in the local ring at R. We now need to lift that to something global.
+
+            I'm wondering if we even need it in all local rings. E.g. if we have in the stalk
+            at z that f = u • g, can this just be lifted globally?
+
+
             -/
 
             sorry
@@ -255,6 +285,7 @@ def AlgebraicCycle.lineBundleModule
               D.restrict (by aesop : U.1 ⊆ ⊤) ≥ 0}
   add_mem' := by
     intro a b ha hb
+
     simp_all
     intro h
     by_cases ha0 : a = 0
