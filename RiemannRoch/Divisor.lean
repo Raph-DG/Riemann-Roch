@@ -14,7 +14,9 @@ to be rational functions such that (f) + D ≥ 0 on U.
 
 This definition gives good results on Noetherian, integral separated schemes which are regular in
 codimension 1. Since our main goal is proving Riemann Roch for curves this should be enough power
-for us, but we should in the future extend these results.
+for us, but we should in the future extend these results. Note that with a bit of care we can use
+essentially the same approach without the integral assumption, however dropping other assumptions
+requires a different approach (namely the approach covered in Hartshorne)
 -/
 
 open AlgebraicGeometry
@@ -405,11 +407,29 @@ def AlgebraicCycle.lineBundleSheaf (D : AlgebraicCycle X) : X.Modules
           -/
           sorry
       map_id := by
+        intro x
+        split_ifs
+        · rename_i h
+          ext
+          simp
+          congr
+          simp [ModuleCat.restrictScalarsId'App]
 
-        sorry
+          --simp [h, ModuleCat.restrictScalarsId'App]
+
+
+
+          --w?
+
+
+
+          sorry
+        · sorry
       map_comp := sorry
     }
     isSheaf := by
+      rw [TopCat.Presheaf.isSheaf_iff_isSheafPairwiseIntersections]
+
       /-
       Let's think about what the proof of this should actually be. We wish to show that this
       is a sheaf, meaning that for any open cover U_i of X, if I have that local sections s_i

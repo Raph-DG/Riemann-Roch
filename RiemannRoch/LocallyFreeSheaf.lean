@@ -27,8 +27,8 @@ variable {C : Type u} [CategoryTheory.Category C]
          [h3 : ∀ (X : C), (J.over X).WEqualsLocallyBijective AddCommGrp]
 
 class IsLocallyFree : Prop extends IsQuasicoherent M where
-  locally_trivial : ∃ p : M.QuasicoherentData, ∀ i : p.I, IsZero (kernel (p.presentation i).generators.π)
-
+  locally_trivial : ∃ p : M.QuasicoherentData,
+    ∀ i : p.I, IsZero (kernel (p.presentation i).generators.π)
 
 structure Trivialization where
   I : Type u

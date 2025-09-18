@@ -2,8 +2,12 @@ import Mathlib
 import RiemannRoch.AlgebraicCycle.Basic
 import RiemannRoch.CodimLemma
 import RiemannRoch.Misc.LocalFinitenessLemmas
-import RiemannRoch.Misc.AffineOpenLemma
-import RiemannRoch.Misc.Instances
+--import RiemannRoch.Misc.AffineOpenLemma
+--import RiemannRoch.Misc.Instances
+import RiemannRoch.OrderOfVanishing.Basic
+import RiemannRoch.OrderOfVanishing.Properties
+import RiemannRoch.IrreducibleComponentsLemma
+import RiemannRoch.TopologyLemmas
 
 /-!
 # Algebraic Cycles
@@ -83,17 +87,25 @@ lemma _root_.AlgebraicGeometry.Scheme.functionField_exists_unit_nhd
     (genericPoint X) (Scheme.germToFunctionField._proof_1 X (X.basicOpen g))
   exact ⟨hg ▸ this ▸ rfl, AlgebraicGeometry.RingedSpace.isUnit_res_basicOpen X.toRingedSpace g⟩
 
+/--
+The order of vanishing of a unit is `1` everywhere.
+-/
 lemma _root_.AlgebraicGeometry.Scheme.ord_unit [IsIntegral X] [IsLocallyNoetherian X] (U : X.Opens)
     [Nonempty U] (f : Γ(X, U)) (hf : IsUnit f) (x : X) (hx : coheight x = 1) (hx' : x ∈ U) :
     Scheme.ord x hx (X.germToFunctionField U f) = 1 := by
-  simp[Scheme.ord]
   have : Ring.KrullDimLE 1 ↑(X.presheaf.stalk x) := krullDimLE_of_coheight hx
-  #check X.presheaf.germ U x
-  #check ordFrac_eq_ord (X.presheaf.stalk x) --(X.germToFunctionField U f)
+  have : IsUnit <| X.presheaf.germ U x hx' f :=
+    RingHom.isUnit_map (ConcreteCategory.hom (X.presheaf.germ U x hx')
+      : ↑(X.presheaf.obj (Opposite.op U)) →+* ↑(X.presheaf.stalk x)) hf
+  have := ordFrac_of_isUnit (K := X.functionField) (X.presheaf.germ U x hx' f) this
+  rw[← this]
+  simp[Scheme.ord]
+  congr 1
+  simp [Scheme.germToFunctionField]
+  have : genericPoint X ⤳ x := genericPoint_specializes x
+  rw [← TopCat.Presheaf.germ_stalkSpecializes X.presheaf hx' this]
+  rfl
 
-  --#check ordFrac_eq_ord (X.presheaf.stalk x) ((ConcreteCategory.hom (X.presheaf.germ U (genericPoint ↥X) (Scheme.germToFunctionField._proof_1 X U))) f)
-
-  sorry
 
 def irreducibleComponents_irreducibleClosed (T : irreducibleComponents X) : IrreducibleCloseds X where
   carrier := T
@@ -101,181 +113,119 @@ def irreducibleComponents_irreducibleClosed (T : irreducibleComponents X) : Irre
   is_closed' := isClosed_of_mem_irreducibleComponents T.1 T.2
 
 
-noncomputable
-def irreducibleComponents_height_zero : irreducibleComponents X ≃o {x : X | coheight x = 0} := by
-  /-
-  This is just a variation on the following OrderIso
-  -/
-  let f := OrderIso.mapSetOfMaximal
-    (OrderIso.trans OrderIso.Set.univ (OrderIso.trans (irreducibleSetEquivPoints (α := X))
-     OrderIso.Set.univ.symm))
-
-  sorry
-#check IrreducibleCloseds.map
-
 
 /-
-It's not necessarily the case that the image of the subtype map will be closed. It's not going to
-suddenly become multiple irreducible components, but I think in the carrier we'll have to take
-a closure.
-
-I think the irreducibility will be on loogle somewhere, search when in wifi again.
-It should just be the proof in Irred
+TODO: Split up this horrendous proof
 -/
-def IrreducibleCloseds.subtype_val {α : Type*} [TopologicalSpace α] {p : α → Prop}
-    (V : IrreducibleCloseds (Subtype p)) : IrreducibleCloseds α where
-      carrier := closure <| Subtype.val '' V.1
-      is_irreducible' := by
-        #check V.is_irreducible'.image
-        /-
-        If we can get the below apply working, this should reduce to showing that
-        closure ∘ Subtype.val '' _ is continuous, which is definitely somewhere in the
-        library.
-        -/
-        --apply V.is_irreducible'.image
-        sorry
-      is_closed' := isClosed_closure
+set_option maxHeartbeats 0
+lemma div_locally_finite [IsIntegral X] [nt : IsLocallyNoetherian X]
+  (f : X.functionField) (hf : f ≠ 0) : ∀ z ∈ (⊤ : Set X),
+  ∃ t ∈ 𝓝 z,
+  (t ∩ Function.support fun Z : X ↦ if h : coheight Z = 1
+                                    then Multiplicative.toAdd <| WithZero.unzero (Scheme.ord_ne_zero h hf)
+                                    else 0).Finite := by
+    intro z hz
+      -- Take U to be a neighboourhood of z in which f ∈ 𝒪(U)ˣ
+    obtain ⟨U, f', hU, hf'⟩ := Scheme.functionField_exists_unit_nhd f hf
 
-/-
+    by_cases h : z ∈ U
+    · /-
+      By assumption, the order of vanishing at every point of `U` is trivial.
+      Hence, if `z ∈ U`, we can take our neighbourhood to be `U`, where the support will be empty
+      and hence clearly finite.
+      -/
+      use U
+      constructor
+      · exact IsOpen.mem_nhds U.2 h
+      · convert finite_empty
+        ext a
+        simp only [mem_inter_iff, SetLike.mem_coe, Function.mem_support, ne_eq, dite_eq_right_iff,
+          toAdd_eq_zero, not_forall, mem_empty_iff_false, iff_false, not_and, not_exists,
+          Decidable.not_not]
+        intro ha ha'
+        suffices Scheme.ord a ha' f = 1 by aesop
+        rw [← hf'.1]
+        exact AlgebraicGeometry.Scheme.ord_unit _ _ hf'.2 _ _ ha
 
-Here, we want to relate the codimension of a point in X to a point in X \ U. For this, I suppose we
-can write some lemma about how codimension changes under an open immersion.
+    · let XU := (⊤ : Set X) \ U
+      have properClosed : XU ≠ ⊤ ∧ IsClosed XU := by have := U.2; aesop
 
-Still, I think this is overkill for what we need here.
+      have imp1 (y : X) (h : Order.coheight y = 1)
+          (hy : Scheme.ord y h f ≠ 1) : y ∈ XU := by
+        simp[XU]
+        intro hy'
+        have := AlgebraicGeometry.Scheme.ord_unit _ _ hf'.2 _ h hy'
+        rw[hf'.1] at this
+        exact hy this
 
-We want to say that the coheight of any element must be witnessed by a chain containing the top
-element. I think this formulation below (modulo problems with the coheight not being precisely
-what we're looking for) is actually true. The reason being that an the closure of an
-open subset of an irreducible space must be that space I think.
+      have imp2 (y : X) (h : Order.coheight y = 1)
+          (hy : Scheme.ord y h f ≠ 1) : closure {y} ⊆ XU :=
+        (IsClosed.closure_subset_iff properClosed.2).mpr
+          (singleton_subset_iff.mpr (imp1 y h hy))
 
-Here, we want Subtype.val '' to give an irreducible closed set, not just a set. For this, I think
-we should define some auxilliary function.
+      obtain ⟨W, hW⟩ := AlgebraicGeometry.exists_isAffineOpen_mem_and_subset
+        (x := z) (U := ⊤) (by aesop)
+      use W
+      refine ⟨IsOpen.mem_nhds (Opens.isOpen W) hW.2.1, ?_⟩
 
-lemma _root_.blablo (Y : Type*) [TopologicalSpace Y] [QuasiSober Y] [T0Space Y] [IrreducibleSpace Y]
-    (U : Set Y) (hU : IsOpen U) [Nonempty U] (V : IrreducibleCloseds {x | x ∈ U}) :
-    coheight (IrreducibleCloseds.subtype_val V) = coheight V + 1:= by
-  apply le_antisymm
-  · apply coheight_le
-    intro p hlast
-    wlog hlenpos : p.length ≠ 0
-    · simp_all
-    -- essentially p' := (p.drop 1).map unbot
-    let p' : LTSeries (IrreducibleCloseds ↑{x | x ∈ U}) := {
-      length := p.length - 1
-      toFun := fun ⟨i, hi⟩ ↦ by
-        #check p ⟨i, by omega⟩
-        let testing := p ⟨i, by omega⟩
-        constructor
-        · sorry
-        · sorry --refine ⟨p ⟨i, by omega⟩, ?_⟩
-        · sorry
-          --exact ⟨p ⟨i, by omega⟩, sorry⟩
-        /-
-        Idk why we called it hlast, must be a relic of the dualized version.
+      let thing := W.1 ∩ XU
 
-        -/
-        --refine ⟨⟨p ⟨i, by omega⟩, ?_⟩ , ?_, ?_⟩
-        sorry
-        /-(p ⟨i+1, by omega⟩).untop (by
-        apply ne_bot_of_gt (a := p.head)
-        apply p.strictMono
-        exact compare_gt_iff_gt.mp rfl)-/
-      step := fun i => by simpa [WithBot.unbot_lt_iff] using p.step ⟨i + 1, by omega⟩ }
-    have hlast' : p'.last = x := by
-      simp only [p', RelSeries.last, WithBot.unbot_eq_iff, ← hlast, Fin.last]
-      congr
-      omega
-    suffices p'.length ≤ height p'.last by
-      simpa [p', hlast'] using this
-    apply length_le_height_last
-  · rw [height_add_const]
-    apply iSup₂_le
-    intro p hlast
-    let p' := (p.map _ WithBot.coe_strictMono).cons ⊥ (by simp)
-    apply le_iSup₂_of_le p' (by simp [p', hlast]) (by simp [p'])-/
+      have ntW : NoetherianSpace W := by
+        have : IsAffine W := hW.1
+        have : IsNoetherianRing ↑Γ(↑W, ⊤) := by
+          have := nt.1 ⟨W, hW.1⟩
+          let m := W.topIso
+          let test : Γ(↑W, ⊤) ≃+* Γ(X, W) := m.commRingCatIsoToRingEquiv
+          exact isNoetherianRing_of_ringEquiv Γ(X, W) test.symm
 
+        exact AlgebraicGeometry.noetherianSpace_of_isAffine
 
+      have : NoetherianSpace thing := @NoetherianSpace.noetherian_inter _ _ W.1 XU ntW
+      have ans : (irreducibleComponents thing).Finite :=
+        TopologicalSpace.NoetherianSpace.finite_irreducibleComponents
 
+      suffices {z ∈ thing | coheight z = 1}.Finite by
+          simp_all only [top_eq_univ, mem_univ, ne_eq, Opens.carrier_eq_coe, Opens.coe_top,
+            subset_univ, and_true]
+          have : (thing ∩ {z : X | coheight z = 1}).Finite := by aesop
+          apply Finite.subset this
+          simp only [subset_inter_iff]
+          constructor
+          · simp only [subset_def, mem_inter_iff, SetLike.mem_coe, Function.mem_support, ne_eq,
+            dite_eq_right_iff, toAdd_eq_zero, not_forall, and_imp, forall_exists_index, thing]
+            intro a ha ha' ha''
+            constructor
+            · exact ha
+            · have : ¬(Scheme.ord a ha') f = 1 := by
+                have : WithZero.unzero (Scheme.ord_ne_zero ha' hf) = (Scheme.ord a ha') f :=
+                  coe_unzero (Scheme.ord_ne_zero ha' hf)
+                rw [← this]
+                intro hh
+                rw [← coe_one, coe_inj] at hh
+                exact ha'' hh
+              exact imp1 a ha' this
+          · simp [subset_def]
+            exact fun _ _ c _ ↦ c
 
-#check coheight_coe_withTop
--- lemma blo [IsIntegral X] (x : X)
-
-/-
-With a bit of luck we can now use this to show that if we have some proper closed subset of an
-integral scheme, then codimension 1 points lying on our set have codimension 0 when measured on
-just the proper closed subset.
--/
-lemma coheight_zero_of_coheight_one_of_strictMono
-    {α β: Type*} [Preorder α] [Preorder β] (f : WithTop α → β) (hf : StrictMono f) (x : α)
-    (h : coheight (f x) = 1) : coheight x = 0 := by
-  suffices coheight (x : WithTop α) = 1 by
-    simp at this
-    by_cases m : coheight x = ⊤
-    · rw[m] at this
-      contradiction
-    · push_neg at m
-      rw [ENat.ne_top_iff_exists] at m
-      obtain ⟨a, ha⟩ := m
-      rw[← ha] at this ⊢
-      have dumb: (1 : ℕ∞) = ↑(1 : ℕ) := rfl
-      rw[dumb] at this
-      rw [← ENat.coe_add, ENat.coe_inj] at this
-      simpa using this
-
-  have : coheight (f x) ≥ coheight (x : WithTop α) :=
-    coheight_le_coheight_apply_of_strictMono f hf ↑x
-  rw [h] at this
-  apply le_antisymm
-  · exact this
-  · simp
-
-
-#check genericPoint
-/-
-This would be more general if we, instead of taking as input points of X, took in sets. Then we
-could just send our ⊤ element to the whole space X instead of needing a generic point to send ⊤ to.
-
--/
-noncomputable
-def som {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y] [QuasiSober Y] [IrreducibleSpace Y]
-    (f : X → Y) : WithTop X → Y := by
-  intro a
-  by_cases h : a = ⊤
-  · exact genericPoint Y
-  · exact f (WithTop.untop a h)
-
-lemma dsa {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y] [QuasiSober Y] [IrreducibleSpace Y]
-    (f : X → Y) (hf : @StrictMono _ _ (specializationPreorder X) (specializationPreorder Y) f) :
-    @StrictMono _ _ (@WithTop.preorder _ (specializationPreorder X)) (specializationPreorder Y)
-    (som f) := sorry
-
-#check irreducibleComponents
-
-local instance (X : Type*) [TopologicalSpace X] : Preorder X := specializationPreorder X in
-def fdb {X : Type*} [TopologicalSpace X] [QuasiSober X] [T0Space X] :
-    {x : X | coheight x = 0} ≃ irreducibleComponents X where
-      toFun := by
-        rintro ⟨x, hx⟩
-        refine ⟨closure {x}, ?_⟩
-
-        #check OrderIso.setOfMinimalIsoSetOfMaximal
-
-        sorry
-      invFun := sorry
-      left_inv := sorry
-      right_inv := sorry
-
-
-  /-rw [irreducibleComponents_eq_maximals_closed]
-  constructor
-
-  simp
-  let m := TopologicalSpace.IrreducibleCloseds.orderIsoSubtype' X
-
-
-
-  sorry-/
-
+      have : closure thing ≠ ⊤ := by
+        have ans : closure thing ⊆ closure XU := by
+          apply closure_mono
+          simp [thing]
+        rw [IsClosed.closure_eq properClosed.2] at ans
+        intro k
+        simp_all
+      refine Finite.subset ?_ (coheight_lemma this)
+      suffices {x : thing | coheight x = 0}.Finite by exact Finite.image Subtype.val this
+      have qsW : QuasiSober W := instQuasiSoberCarrierCarrierCommRingCat W
+      have : QuasiSober ↑thing := @QuasiSober.quasiSober_inter _ _ W.1 XU qsW properClosed.2
+      let m := coheightZeroSetOrderIsoIrreducibleComponents (X := thing)
+      have := (Equiv.finite_iff m.toEquiv).mpr ans
+      simp only [finite_coe_iff, instPreorderOfTopologicalSpace_riemannRoch] at this
+      convert this
+      simp [Subtype.preorder, specializationPreorder, Preorder.lift]
+      ext a b
+      dsimp only
+      exact Iff.symm (subtype_specializes_iff b a)
 
 open Classical in
 noncomputable
@@ -285,102 +235,7 @@ def div [IsIntegral X] [nt : IsLocallyNoetherian X]
                then Multiplicative.toAdd <| WithZero.unzero (Scheme.ord_ne_zero h hf)
                else 0
     supportWithinDomain' := by simp
-    supportLocallyFiniteWithinDomain' := by
-      intro z hz
-
-      -- Take U to be a neighboourhood of z in which f ∈ 𝒪(U)ˣ
-      obtain ⟨U, f', hU, hf'⟩ := Scheme.functionField_exists_unit_nhd f hf
-
-
-      by_cases h : z ∈ U
-      · /-
-        By assumption, the order of vanishing at every point of `U` is trivial.
-        Hence, if `z ∈ U`, we can take our neighbourhood to be `U`, where the support will be empty
-        and hence clearly finite.
-        -/
-        use U
-        constructor
-        · rw [@_root_.mem_nhds_iff]
-          use U
-          simp[h]
-          exact U.2
-        · convert finite_empty
-          ext a
-          simp
-          intro ha ha'
-          suffices Scheme.ord a ha' f = 1 by aesop
-          rw[← hf'.1]
-          exact AlgebraicGeometry.Scheme.ord_unit _ _ hf'.2 _ _ ha
-      · /-
-        Suppose z ∉ U. Since U is assumed to be nonempty, X \ U is a proper closed subset of X.
-        Hence, any point of X \ U with codimension 1 in X must have codimension 0 in X \ U, since
-        the only point bigger than a codimension 1 point in an integral scheme is the whole space.
-
-        In particular, this means that any codimension 1 point of X where f has nontrivial vanishing
-        must be an irreducible component of X \ U.
-
-        Take `W` to be an affine neighbourhood of `z`. Since `X` is locally Noetherian. we must have
-        that `W` is a Noetherian space, meaning namely it has finitely many irreducible components.
-        This then shows that `W` hits the support of `f` in finitely many places, since any such
-        element of the support defines an irreducible component of `XU`, which must be an irreducible
-        component of `W ∩ XU`, which is Noetherian since `W` is Noetherian.
-        -/
-        let XU := (⊤ : Set X) \ U
-        have properClosed : XU ≠ ⊤ ∧ IsClosed XU := by have := U.2; aesop
-
-        have (y : X) (h : Order.coheight y = 1)
-            (hy : Scheme.ord y h f ≠ 1) : y ∈ XU := by
-          simp[XU]
-          intro hy'
-          have := AlgebraicGeometry.Scheme.ord_unit _ _ hf'.2 _ h hy'
-          rw[hf'.1] at this
-          exact hy this
-
-        have (y : X) (h : Order.coheight y = 1)
-            (hy : Scheme.ord y h f ≠ 1) : closure {y} ⊆ XU :=
-          (IsClosed.closure_subset_iff properClosed.2).mpr
-            (singleton_subset_iff.mpr (this y h hy))
-
-        obtain ⟨W, hW⟩ := AlgebraicGeometry.exists_isAffineOpen_mem_and_subset
-          (x := z) (U := ⊤) (by aesop)
-        use W
-        refine ⟨IsOpen.mem_nhds (Opens.isOpen W) hW.2.1, ?_⟩
-
-
-        /-
-        We want to somehow say that elements of this intersection must be irreducible components.
-        I think this should just be another application of our lemma in codimlemmas.
-
-        What did I mean by this? Well, I'm not entirely sure, but the argument here should be that
-        irreducible components are precisely the points of codimension 0. And it should be the
-        case that the points of codimension 0 in `X \ U` are precisely the points of codimension 1
-        in `X` outside of `U`.
-
-
-        -/
-
-
-        let thing := W.1 ∩ XU
-        have ntW : NoetherianSpace W := by
-          have : IsAffine W := hW.1
-          have : IsNoetherianRing ↑Γ(↑W, ⊤) := by
-            have := nt.1 ⟨W, hW.1⟩
-            simp_all
-            convert this
-
-            sorry
-          exact AlgebraicGeometry.noetherianSpace_of_isAffine
-        have ntt : NoetherianSpace thing := by
-          have : thing ⊆ W := by exact inter_subset_left
-          --exact TopologicalSpace.NoetherianSpace.set (thing : Set W)
-          --have := TopologicalSpace.NoetherianSpace.set (thing : Set W)
-          sorry
-        have : (irreducibleComponents thing).Finite :=
-          TopologicalSpace.NoetherianSpace.finite_irreducibleComponents
-        suffices {z ∈ thing | coheight z = 1}.Finite by sorry
-
-        suffices (irreducibleComponents ↑thing).Finite by sorry
-        exact this
+    supportLocallyFiniteWithinDomain' := div_locally_finite f hf
 
 
 lemma div_eq_zero_of_coheight_ne_one [IsIntegral X] [IsLocallyNoetherian X] (f : X.functionField)
@@ -625,7 +480,11 @@ noncomputable
           --have t2 : ((Function.support fun x ↦ ∑ i ∈ (singletonFinite B W f hf hW z).toFinset, ∑ x ∈ (preimageSupport_finite (W i) (div (f i) (hf i)) x).toFinset, (div (f i) (hf i)) x * mapAux (W i) x) ∩ U).Finite := sorry
 
           #check Finite.subset ?_ (Finset.support_sum ?_ ?_)
-          have t2 : ((⋃ i ∈ (singletonFinite B W f hf hW z).toFinset, Function.support fun z ↦ ∑ x ∈ (preimageSupport_finite (W i) (div (f i) (hf i)) z).toFinset, (div (f i) (hf i)) x * mapAux (W i) x) ∩ U).Finite := sorry
+          --refine Finite.subset ?_ (Finset.support_sum ?_ ?_)
+          have t2 : ((⋃ i ∈ (singletonFinite B W f hf hW z).toFinset,
+                    Function.support fun z ↦
+                    ∑ x ∈ (preimageSupport_finite (W i) (div (f i) (hf i)) z).toFinset,
+                    (div (f i) (hf i)) x * mapAux (W i) x) ∩ U).Finite := sorry
           have := Finite.subset t2 t1
           simp_all
 

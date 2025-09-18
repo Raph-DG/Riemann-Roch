@@ -1,8 +1,8 @@
 import Mathlib
 import RiemannRoch.CodimLemma
 import RiemannRoch.Misc.LocalFinitenessLemmas
-import RiemannRoch.Misc.AffineOpenLemma
-import RiemannRoch.Misc.Instances
+--import RiemannRoch.Misc.AffineOpenLemma
+--import RiemannRoch.Misc.Instances
 
 /-!
 # Algebraic Cycles
