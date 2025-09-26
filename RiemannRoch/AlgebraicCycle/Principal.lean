@@ -117,7 +117,7 @@ def irreducibleComponents_irreducibleClosed (T : irreducibleComponents X) : Irre
 /-
 TODO: Split up this horrendous proof
 -/
-set_option maxHeartbeats 0
+--set_option maxHeartbeats 0
 lemma div_locally_finite [IsIntegral X] [nt : IsLocallyNoetherian X]
   (f : X.functionField) (hf : f ≠ 0) : ∀ z ∈ (⊤ : Set X),
   ∃ t ∈ 𝓝 z,
@@ -135,97 +135,79 @@ lemma div_locally_finite [IsIntegral X] [nt : IsLocallyNoetherian X]
       and hence clearly finite.
       -/
       use U
-      constructor
-      · exact IsOpen.mem_nhds U.2 h
-      · convert finite_empty
-        ext a
-        simp only [mem_inter_iff, SetLike.mem_coe, Function.mem_support, ne_eq, dite_eq_right_iff,
-          toAdd_eq_zero, not_forall, mem_empty_iff_false, iff_false, not_and, not_exists,
-          Decidable.not_not]
-        intro ha ha'
-        suffices Scheme.ord a ha' f = 1 by aesop
-        rw [← hf'.1]
-        exact AlgebraicGeometry.Scheme.ord_unit _ _ hf'.2 _ _ ha
+      refine ⟨IsOpen.mem_nhds U.2 h, ?_⟩
+      convert finite_empty
+      ext a
+      simp only [mem_inter_iff, SetLike.mem_coe, Function.mem_support, ne_eq, dite_eq_right_iff,
+        toAdd_eq_zero, not_forall, mem_empty_iff_false, iff_false, not_and, not_exists,
+        Decidable.not_not]
+      intro ha ha'
+      suffices Scheme.ord a ha' f = 1 by aesop
+      rw [← hf'.1]
+      exact AlgebraicGeometry.Scheme.ord_unit _ _ hf'.2 _ _ ha
 
     · let XU := (⊤ : Set X) \ U
-      have properClosed : XU ≠ ⊤ ∧ IsClosed XU := by have := U.2; aesop
+      have properClosed : XU ≠ ⊤ ∧ IsClosed XU := by have := U.2; aesop (add simp (U.2))
 
-      have imp1 (y : X) (h : Order.coheight y = 1)
+      /-
+      All points where `f` has nontrivial vanishing must lie outside `U` (i.e. inside `XU`).
+      -/
+      have imp (y : X) (h : Order.coheight y = 1)
           (hy : Scheme.ord y h f ≠ 1) : y ∈ XU := by
-        simp[XU]
-        intro hy'
-        have := AlgebraicGeometry.Scheme.ord_unit _ _ hf'.2 _ h hy'
-        rw[hf'.1] at this
-        exact hy this
-
-      have imp2 (y : X) (h : Order.coheight y = 1)
-          (hy : Scheme.ord y h f ≠ 1) : closure {y} ⊆ XU :=
-        (IsClosed.closure_subset_iff properClosed.2).mpr
-          (singleton_subset_iff.mpr (imp1 y h hy))
+        simp only [top_sdiff', hnot_eq_compl, mem_compl_iff, SetLike.mem_coe, XU]
+        exact fun a ↦ hy (hf'.1 ▸ AlgebraicGeometry.Scheme.ord_unit _ _ hf'.2 _ h a)
 
       obtain ⟨W, hW⟩ := AlgebraicGeometry.exists_isAffineOpen_mem_and_subset
         (x := z) (U := ⊤) (by aesop)
-      use W
-      refine ⟨IsOpen.mem_nhds (Opens.isOpen W) hW.2.1, ?_⟩
+      refine ⟨W, ⟨IsOpen.mem_nhds (Opens.isOpen W) hW.2.1, ?_⟩⟩
 
-      let thing := W.1 ∩ XU
+      /-
+      Our strategy is to show that the points intersecting `W` of codimension `1` are just the
+      irreducible components of `WXU`. Then, we show `WXU` is Noetherian and hence has finitely
+      many irreducible components.
+      -/
+      let WXU := W.1 ∩ XU
 
-      have ntW : NoetherianSpace W := by
+      have ntW : NoetherianSpace W :=
         have : IsAffine W := hW.1
-        have : IsNoetherianRing ↑Γ(↑W, ⊤) := by
+        have : IsNoetherianRing ↑Γ(↑W, ⊤) :=
           have := nt.1 ⟨W, hW.1⟩
-          let m := W.topIso
-          let test : Γ(↑W, ⊤) ≃+* Γ(X, W) := m.commRingCatIsoToRingEquiv
-          exact isNoetherianRing_of_ringEquiv Γ(X, W) test.symm
+          isNoetherianRing_of_ringEquiv Γ(X, W) W.topIso.commRingCatIsoToRingEquiv.symm
+        AlgebraicGeometry.noetherianSpace_of_isAffine
 
-        exact AlgebraicGeometry.noetherianSpace_of_isAffine
-
-      have : NoetherianSpace thing := @NoetherianSpace.noetherian_inter _ _ W.1 XU ntW
-      have ans : (irreducibleComponents thing).Finite :=
+      have : NoetherianSpace WXU := @NoetherianSpace.noetherian_inter _ _ W.1 XU ntW
+      have ans : (irreducibleComponents WXU).Finite :=
         TopologicalSpace.NoetherianSpace.finite_irreducibleComponents
 
-      suffices {z ∈ thing | coheight z = 1}.Finite by
+      suffices {z ∈ WXU | coheight z = 1}.Finite by
+          apply Finite.subset (by aesop : (WXU ∩ {z : X | coheight z = 1}).Finite)
           simp_all only [top_eq_univ, mem_univ, ne_eq, Opens.carrier_eq_coe, Opens.coe_top,
-            subset_univ, and_true]
-          have : (thing ∩ {z : X | coheight z = 1}).Finite := by aesop
-          apply Finite.subset this
-          simp only [subset_inter_iff]
+            subset_univ, and_true, subset_inter_iff]
           constructor
           · simp only [subset_def, mem_inter_iff, SetLike.mem_coe, Function.mem_support, ne_eq,
-            dite_eq_right_iff, toAdd_eq_zero, not_forall, and_imp, forall_exists_index, thing]
-            intro a ha ha' ha''
-            constructor
-            · exact ha
-            · have : ¬(Scheme.ord a ha') f = 1 := by
-                have : WithZero.unzero (Scheme.ord_ne_zero ha' hf) = (Scheme.ord a ha') f :=
-                  coe_unzero (Scheme.ord_ne_zero ha' hf)
-                rw [← this]
-                intro hh
-                rw [← coe_one, coe_inj] at hh
-                exact ha'' hh
-              exact imp1 a ha' this
-          · simp [subset_def]
+            dite_eq_right_iff, toAdd_eq_zero, not_forall, and_imp, forall_exists_index, WXU]
+            intro a ha ha' _
+            have : ¬(Scheme.ord a ha') f = 1 := by
+              rwa [← coe_unzero (Scheme.ord_ne_zero ha' hf), ← coe_one, coe_inj]
+            exact ⟨ha, imp a ha' this⟩
+          · simp only [subset_def, mem_inter_iff, SetLike.mem_coe, Function.mem_support, ne_eq,
+            dite_eq_right_iff, toAdd_eq_zero, not_forall, mem_setOf_eq, and_imp,
+            forall_exists_index]
             exact fun _ _ c _ ↦ c
 
-      have : closure thing ≠ ⊤ := by
-        have ans : closure thing ⊆ closure XU := by
-          apply closure_mono
-          simp [thing]
-        rw [IsClosed.closure_eq properClosed.2] at ans
-        intro k
-        simp_all
-      refine Finite.subset ?_ (coheight_lemma this)
-      suffices {x : thing | coheight x = 0}.Finite by exact Finite.image Subtype.val this
+      have : closure WXU ≠ ⊤ := by
+        have ans : closure WXU ⊆ closure XU := closure_mono <| by simp [WXU]
+        aesop
+      refine Finite.subset (Finite.image Subtype.val ?_)
+        (QuasiSober.coheight_eq_zero_subset_of_coheight_eq_one this)
       have qsW : QuasiSober W := instQuasiSoberCarrierCarrierCommRingCat W
-      have : QuasiSober ↑thing := @QuasiSober.quasiSober_inter _ _ W.1 XU qsW properClosed.2
-      let m := coheightZeroSetOrderIsoIrreducibleComponents (X := thing)
-      have := (Equiv.finite_iff m.toEquiv).mpr ans
-      simp only [finite_coe_iff, instPreorderOfTopologicalSpace_riemannRoch] at this
+      have : QuasiSober ↑WXU := @QuasiSober.quasiSober_inter _ _ W.1 XU qsW properClosed.2
+      have := (Equiv.finite_iff
+        (coheightZeroSetOrderIsoIrreducibleComponents (X := WXU)).toEquiv).mpr ans
+      simp only [finite_coe_iff] at this
       convert this
-      simp [Subtype.preorder, specializationPreorder, Preorder.lift]
       ext a b
-      dsimp only
-      exact Iff.symm (subtype_specializes_iff b a)
+      exact (subtype_specializes_iff b a).symm
 
 open Classical in
 noncomputable

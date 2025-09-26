@@ -285,13 +285,15 @@ def map_homogeneneous {Y : Scheme.{u}} {d : ℕ∞} (f : X ⟶ Y) [qc : QuasiCom
   (c : HomogeneousAddSubgroup X d) : HomogeneousAddSubgroup Y d where
     val := map f c
     property := by
-      simp[HomogeneousAddSubgroup, IsHomogeneous]
+      simp only [HomogeneousAddSubgroup, IsHomogeneous]
       intro y hy
-      have : ¬ (map f c).toFun y = 0 := hy
-      simp only [top_eq_univ, map, preimageSupport, mapAux, mul_ite, mul_zero] at this
-      obtain ⟨x, hx⟩ := Finset.exists_ne_zero_of_sum_ne_zero this
+      simp only [top_eq_univ, map, preimageSupport, mapAux, mul_ite, mul_zero] at hy
+      obtain ⟨x, hx⟩ := Finset.exists_ne_zero_of_sum_ne_zero hy
       simp only [Finite.mem_toFinset, mem_inter_iff, mem_preimage, mem_singleton_iff,
         Function.mem_support, ne_eq, ite_eq_right_iff, mul_eq_zero, Int.natCast_eq_zero,
         Classical.not_imp, not_or] at hx
       have : height x = d := c.2 x hx.1.2
-      aesop
+      rw [← this]
+      rw [hx.2.1]
+      rw [hx.1.1]
+      --simp_all only [Function.mem_support, ne_eq]
