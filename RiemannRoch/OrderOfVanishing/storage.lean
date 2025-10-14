@@ -1,8 +1,13 @@
-import Mathilb
+import Mathlib
+
+open AlgebraicGeometry
+
+universe u
+
+variable (X : Scheme.{u}) [IsIntegral X]
 
 /--
 This is a lemma I think we'll need at some point, but I don't think it belongs in the first PR
-
 -/
 theorem eq_mul_of_stalk_eq_mul (z : X) (U : X.Opens) (h : z ∈ U) (f g u : Γ(X, U)) [Nonempty U]
     (hfg :
@@ -24,3 +29,11 @@ theorem eq_mul_of_stalk_eq_mul (z : X) (U : X.Opens) (h : z ∈ U) (f g u : Γ(X
   have : Function.Injective (algebraMap ↑Γ(X, U) ↑(X.presheaf.stalk z)) :=
     AlgebraicGeometry.germ_injective_of_isIntegral X z h
   exact this hfg
+
+
+/-
+The above lemma tells us that two regular functions on U whose stalks at a point are differ by u
+must differ by u globally.
+
+We really
+-/

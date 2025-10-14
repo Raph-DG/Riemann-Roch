@@ -7,7 +7,9 @@ variable (I : Type*) [Category I]
 open lp
 
 /-
-The following is meant to represent a formal limit of rings.
+The following is meant to represent a formal limit of rings. I'm not sure if
+it's better to have this or some more down to earth definition. Something tells
+me the more down to earth thing is going to better for computations.
 -/
 structure PreScheme where
   --I : Type*
@@ -52,8 +54,25 @@ One hope is that we can define some function which refines a given input categor
 assumptions this is a computationally reasonable thing to do. I then wish to basically only ever
 compute limits of the refinement, and that we shouold be able to do this in a way that makes
 intelligent choices in a context where we have chosen limits.
+
+We need to figure out this refinement calculus in order to define morphisms in a sensible
+way. Then we define a morphism as a natural transformation between a common refinement.
 -/
 structure Refinement {I C : Cat} [HasLimits C] (F : I ⥤ C) where
   I' : Cat
   ref : I' ⥤ I
   is_refinement : limit F ≅ limit (ref ⋙ F)
+
+#check IsLinearMap
+
+
+/-
+We need some structure on the PreScheme.
+One nice thing is that we don't really need the whole scheme structure,
+here it's tempting to just define this for any indexing category with
+an initial object.
+-/
+structure PreScheme.Mod (X : PreScheme) where
+  val : X.cat ⥤ Ab
+  mod (x : X.cat) : Module (X.data.obj x) (val.obj x)
+  lin {x y : X.cat} (f : x ⟶ y) : sorry --IsLinearMap (X.data.obj x) (val.map f)
