@@ -4,13 +4,13 @@ open CategoryTheory
 
 open AlgebraicGeometry Scheme Opposite TopCat TopologicalSpace
 
-variable {X : Scheme} (F : X.Modules) (P : {U : X.Opens} → F.val.obj (op U) → Prop)
+variable {X : Scheme} (F : X.Modules)
 
 macro:max "Γₘ("F:term","U:term")" : term =>
   `((SheafOfModules.val $F).obj (op $U))
 
 structure LinearLocalPredicate (F : X.Modules) where
-    P : {U : X.Opens} → Γₘ(F, U) → Prop
+    P {U : X.Opens} (f : Γₘ(F, U)) : Prop
     zero {U : X.Opens} : P (0 : Γₘ(F, U))
     add {U : X.Opens} {f g : Γₘ(F, U)} (hf : P f) (hg : P g) : P (f + g)
     smul {U : X.Opens} (a : Γ(X, U)) {f : Γₘ(F, U)} (hf : P f) : P (a • f)
@@ -20,8 +20,8 @@ structure LinearLocalPredicate (F : X.Modules) where
       (∀ x ∈ U, ∃ (V : X.Opens) (k : V ≤ U) (_ : x ∈ V), P <| F.val.presheaf.map (homOfLE k).op f)
       → P f
 
-section LinearLocalPredicate
-
+namespace LinearLocalPredicate
+#check LocalPredicate
 def submodule (F : X.Modules) (Fp : LinearLocalPredicate F) (U : X.Opens) :
     Submodule Γ(X, U) Γₘ(F, U) where
   carrier := Fp.P
@@ -29,29 +29,23 @@ def submodule (F : X.Modules) (Fp : LinearLocalPredicate F) (U : X.Opens) :
   zero_mem' := Fp.zero
   smul_mem' := Fp.smul
 
-set_option synthInstance.maxHeartbeats 0
+attribute [local instance 1100] AddCommMonoid.toAddMonoid in
 noncomputable
-def presheaf (F : X.Modules) (Fp : LinearLocalPredicate F) : PresheafOfModules X.ringCatSheaf.val where
-  obj U := ModuleCat.of (↑(X.ringCatSheaf.val.obj U)) (submodule F Fp (unop U))
-  map := by
-    intro U V l
-    apply ModuleCat.ofHom (Y := (ModuleCat.restrictScalars
-                (RingCat.Hom.hom (X.ringCatSheaf.val.map l))).obj
-                (ModuleCat.of ↑(X.ringCatSheaf.val.obj V) ↥(submodule F Fp (unop V))))
-    exact {
-      toFun x := ⟨F.val.presheaf.map l x.1, Fp.res (le_of_op_hom l) x x.2⟩
-      map_add' := by aesop
-      map_smul' := by
-        intro a x
-        simp_all only [sheafCompose_obj_val, Functor.comp_obj,
-          CommRingCat.forgetToRingCat_obj, Functor.comp_map,
-          CommRingCat.forgetToRingCat_map_hom, op_unop, PresheafOfModules.presheaf_obj_coe,
-          SetLike.val_smul,
-          RingHom.id_apply]
-        apply Subtype.ext
+def presheafAb (F : X.Modules) (Fp : LinearLocalPredicate F) : X.Opensᵒᵖ ⥤ Ab where
+  obj U := .of (submodule F Fp (unop U))
+  map {U V} l := AddCommGrp.ofHom
+    { toFun x := ⟨F.val.presheaf.map l x.1, Fp.res (le_of_op_hom l) x x.2⟩
+      map_zero' := by aesop
+      map_add' := by aesop }
+  map_comp {U V W} f g := by simp_all; rfl
 
-        sorry
-    }
+instance (F : X.Modules) (Fp : LinearLocalPredicate F) {U} :
+    Module (X.ringCatSheaf.val.obj U) ((presheafAb F Fp).obj U) :=
+  inferInstanceAs (Module Γ(X, U.unop) (submodule F Fp _))
+
+noncomputable
+def presheaf (F : X.Modules) (Fp : LinearLocalPredicate F) : PresheafOfModules X.ringCatSheaf.val :=
+  .ofPresheaf (presheafAb F Fp) fun {_ _} f r x ↦ Subtype.ext (F.val.map_smul f r x.1)
 
 /--
 The presheaf of modules constructed from a linear local predicate is a sheaf. This follows
@@ -93,7 +87,7 @@ lemma isSheaf (F : X.Modules) (Fp : LinearLocalPredicate F) :
     exact gl_uniq gl'.1 fun i ↦ congr_arg Subtype.val (hgl' i)
 
 noncomputable
-def sheaf (F : X.Modules) (Fp : LinearLocalPredicate F) : X.Modules where
+def sheaf {F : X.Modules} (Fp : LinearLocalPredicate F) : X.Modules where
   val := presheaf F Fp
   isSheaf := isSheaf F Fp
 

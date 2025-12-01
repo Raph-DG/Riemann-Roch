@@ -114,3 +114,14 @@ bundles, and the way we've done it should be incredibly useful for real applicat
 - Big picture (RiemannRoch.RiemannRoch.lean)
   - 2 We now have a statement for Riemann Roch, but it would be good to have a proof skeleton
   -
+
+
+
+
+
+Today:
+
+Write down the maps in the short exact sequence we want (and of course,
+get the sheaf definitions working).
+
+

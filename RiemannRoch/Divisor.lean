@@ -44,56 +44,99 @@ lemma locallyFinsuppWithin.restrict_eq_zero {Y : Type*} [TopologicalSpace Y] {U 
     (h : V ⊆ U) (z : Y) (hz : z ∉ V) :
   D.restrict h z = 0 := dif_neg hz
 
-variable (h' : ∀ x : X, coheight x = 1 → IsDiscreteValuationRing (X.presheaf.stalk x))
+class IsIntegralInCodimensionOne (X : Scheme.{u}) where
+  domain : ∀ x : X, coheight x = 1 → IsDomain (X.presheaf.stalk x)
+
+lemma IsIntegralInCodimensionOne.stalk_domain {X : Scheme.{u}} [h : IsIntegralInCodimensionOne X] (x : X) (hx : coheight x = 1) :
+  IsDomain (X.presheaf.stalk x) := h.domain x hx
+
+instance {X : Scheme.{u}} [IsIntegral X] : IsIntegralInCodimensionOne X := ⟨inferInstance⟩
+
+/--
+We define a scheme to be regular in codimension one if all its stalks at codimension one are DVRs.
+This is equivalent to being regular since a ring is a DVR iff it is a regular local ring of dimension one.
+-/
+class IsRegularInCodimensionOne (X : Scheme.{u}) extends IsIntegralInCodimensionOne X where
+  dvr : ∀ (x : X) (hx : coheight x = 1),
+      have := IsIntegralInCodimensionOne.stalk_domain x hx
+      IsDiscreteValuationRing (X.presheaf.stalk x)
+
+lemma IsRegularInCodimensionOne.stalk_dvr {X : Scheme.{u}} [h : IsRegularInCodimensionOne X] (x : X) (hx : coheight x = 1) :
+  have := IsIntegralInCodimensionOne.stalk_domain x hx
+  IsDiscreteValuationRing (X.presheaf.stalk x) := h.dvr x hx
+
+variable [IsRegularInCodimensionOne X]
 
 namespace AlgebraicCycle
 namespace LineBundle
 
+/--
+We define `Γ(𝒪ₓ(D), U) := {s : k(X) | s ≠ 0 → Nonempty U ∧ s|_U + D|_U ≥ 0}`.
+-/
 def carrier (D : AlgebraicCycle X) (U : X.Opens) : Set X.functionField :=
-    {s : (X.functionField) | (h : s ≠ 0) → (div s h).restrict (by simp : U.1 ⊆ ⊤) +
-    D.restrict (by simp : U.1 ⊆ ⊤) ≥ 0}
+    {s : (X.functionField) |
+    (h : s ≠ 0) → Nonempty U ∧ (div s h).restrict (leOfHom U.leTop) + D.restrict (leOfHom U.leTop) ≥ 0}
 
-def add_mem (D : AlgebraicCycle X) (U : X.Opens) [Nonempty U] {a b : ↑X.functionField}
+
+--#check Injective.addCommGroup
+--#check FunLike
+--#check Coe
+--#check Injective.addCommGroup
+--def carrierToFunctionField (D : AlgebraicCycle X) (U : X.Opens) : carrier D U → X.functionField := Subtype.val
+--lemma testing  (D : AlgebraicCycle X) (U : X.Opens) : Function.Injective <| carrierToFunctionField D U := Subtype.coe_injective
+
+def add_mema (D : AlgebraicCycle X) (U : X.Opens) {a b : ↑X.functionField}
     (ha : a ∈ carrier D U) (hb : b ∈ carrier D U) : a + b ∈ carrier D U := by
-    simp_all only [carrier]
-    intro h
-    by_cases ha0 : a = 0
-    · simp_all
-    by_cases hb0 : b = 0
-    · simp_all
-    intro Z
-    specialize ha ha0 Z
-    specialize hb hb0 Z
-    simp_all
-    have hU : U.1 ⊆ ⊤ := by aesop
-    suffices min ((div a ha0).restrict hU Z) ((div b hb0).restrict hU Z) ≤
-             (div (a + b) h).restrict hU Z by omega
+    by_cases hU : Nonempty U
+    · simp_all [carrier]
+      intro h
+      by_cases ha0 : a = 0
+      · simp_all
+      by_cases hb0 : b = 0
+      · simp_all
+      intro Z
+      specialize ha ha0 Z
+      specialize hb hb0 Z
+      simp_all
+      have hU : U.1 ⊆ ⊤ := by aesop
+      suffices min ((div a ha0).restrict hU Z) ((div b hb0).restrict hU Z) ≤
+              (div (a + b) h).restrict hU Z by omega
 
-    by_cases hZ : coheight Z = 1
-    · have := krullDimLE_of_coheight hZ
-      by_cases o : Z ∈ U
-      · simp [locallyFinsuppWithin.restrict_eq_within _ _ _ o,
-              div_eq_ord_of_coheight_eq_one _ _ _ hZ, Scheme.ord]
-        have : IsDiscreteValuationRing ↑(X.presheaf.stalk Z) := h' Z hZ
-        have := ordFrac_add (R := X.presheaf.stalk Z) a b
-        simp_all
-      · simp [locallyFinsuppWithin.restrict_eq_zero _ _ _ o]
-    · by_cases o : Z ∈ U
-      · simp only [TopologicalSpace.Opens.carrier_eq_coe, Set.top_eq_univ,
-        locallyFinsuppWithin.restrict_eq_within _ _ _ o, inf_le_iff]
-        rw[div_eq_zero_of_coheight_ne_one _ _ _ hZ, div_eq_zero_of_coheight_ne_one _ _ _ hZ,
-          div_eq_zero_of_coheight_ne_one _ _ _ hZ]
-        simp
-      · simp [locallyFinsuppWithin.restrict_eq_zero _ _ _ o]
+      by_cases hZ : coheight Z = 1
+      · have := krullDimLE_of_coheight hZ
+        by_cases o : Z ∈ U
+        · simp [locallyFinsuppWithin.restrict_eq_within _ _ _ o,
+                div_eq_ord_of_coheight_eq_one _ _ _ hZ, Scheme.ord]
+          have : IsDiscreteValuationRing ↑(X.presheaf.stalk Z) := IsRegularInCodimensionOne.stalk_dvr Z hZ
+          have := ordFrac_add (R := X.presheaf.stalk Z) a b
+          simp_all
+        · simp [locallyFinsuppWithin.restrict_eq_zero _ _ _ o]
+      · by_cases o : Z ∈ U
+        · simp only [TopologicalSpace.Opens.carrier_eq_coe, Set.top_eq_univ,
+          locallyFinsuppWithin.restrict_eq_within _ _ _ o, inf_le_iff]
+          rw[div_eq_zero_of_coheight_ne_one _ _ _ hZ, div_eq_zero_of_coheight_ne_one _ _ _ hZ,
+            div_eq_zero_of_coheight_ne_one _ _ _ hZ]
+          simp
+        · simp [locallyFinsuppWithin.restrict_eq_zero _ _ _ o]
+    · simp_all [carrier]
 
-def zero_mem (D : AlgebraicCycle X) (U : X.Opens) [Nonempty U] : 0 ∈ carrier D U := by
+def zero_mema (D : AlgebraicCycle X) (U : X.Opens) : 0 ∈ carrier D U := by
   simp [carrier]
 
-def smul_mem (D : AlgebraicCycle X) (U : X.Opens) [Nonempty U] (a : Γ(X, U)) {f : X.functionField}
+
+def neg_mema (D : AlgebraicCycle X) (U : X.Opens) (f : X.functionField) (hf : f ∈ carrier D U) : (- f) ∈ carrier D U := by
+  simp_all [carrier]
+
+def smul_mema (D : AlgebraicCycle X) (U : X.Opens) [Nonempty U] (a : Γ(X, U)) {f : X.functionField}
   (hf : f ∈ carrier D U) : a • f ∈ carrier D U := by
-    simp_all only [carrier]
+    simp_all only [carrier, true_and]
     intro nez z
-    have h : ¬ f = 0 := by aesop (add simp nez)
+    have h : ¬ f = 0 := by
+      simp_all only [ne_eq, TopologicalSpace.Opens.carrier_eq_coe, Set.top_eq_univ, ge_iff_le, Set.mem_setOf_eq]
+      apply Aesop.BuiltinRules.not_intro
+      intro a_1
+      subst a_1
+      simp_all only [not_true_eq_false, IsEmpty.forall_iff, smul_zero] --(add simp nez)
     specialize hf h z
     simp only [TopologicalSpace.Opens.carrier_eq_coe, coe_zero, Pi.zero_apply, Set.top_eq_univ,
       coe_add, Pi.add_apply] at hf
@@ -126,235 +169,225 @@ def smul_mem (D : AlgebraicCycle X) (U : X.Opens) [Nonempty U] (a : Γ(X, U)) {f
               div_eq_zero_of_coheight_ne_one _ _ _ hz]
       · simp [locallyFinsuppWithin.restrict_eq_zero _ _ _ o]
 
-def module
+def addSubgroup (D : AlgebraicCycle X) (U : X.Opens) : AddSubgroup X.functionField where
+  carrier := carrier D U
+  add_mem' := add_mema D U
+  zero_mem' := zero_mema D U
+  neg_mem' := by simp_all [carrier]
+
+lemma memAddSubgroup {D : AlgebraicCycle X} {U : X.Opens} (f : carrier D U) :
+    (f : X.functionField) ∈ addSubgroup D U := by simp
+
+@[simps]
+def mk_of_mem_subgroup {D : AlgebraicCycle X} {U : X.Opens} (f : X.functionField) (hf : f ∈ addSubgroup D U) :
+    carrier D U := ⟨f, hf⟩
+
+noncomputable section insts
+
+variable {U : X.Opens} {D : AlgebraicCycle X}
+instance : Zero (carrier D U) where
+  zero := mk_of_mem_subgroup 0 <| zero_mem _
+
+instance : Add (carrier D U) where
+  add f g := mk_of_mem_subgroup (f + g) <| add_mem (AlgebraicCycle.LineBundle.memAddSubgroup f) (AlgebraicCycle.LineBundle.memAddSubgroup g)
+
+instance : Neg (carrier D U) where
+  neg f := mk_of_mem_subgroup (-f) <| neg_mem (LineBundle.memAddSubgroup f)
+
+instance : Sub (carrier D U) where
+  sub f g := mk_of_mem_subgroup (f - g) <| sub_mem (memAddSubgroup f) (memAddSubgroup g)
+
+instance : SMul ℕ (carrier D U) where
+  smul n f := mk_of_mem_subgroup (n • f) <| nsmul_mem (memAddSubgroup f) n
+
+instance : SMul ℤ (carrier D U) where
+  smul n f := mk_of_mem_subgroup (n • f) <| zsmul_mem (memAddSubgroup f) n
+
+@[simp] lemma coe_zero : ((0 : carrier D U) : X.functionField) = 0 := rfl
+
+@[simp] lemma coe_add (f g : carrier D U) :
+    (↑(f + g) : X.functionField) = f + g := rfl
+
+@[simp] lemma coe_neg (f : carrier D U) :
+    (↑(-f) : X.functionField) = -(f : X.functionField) := rfl
+
+@[simp] lemma coe_sub (f g : carrier D U) :
+    (↑(f - g) : X.functionField) = f - g := rfl
+
+@[simp] lemma coe_nsmul (f : carrier D U) (n : ℕ) :
+    (↑(n • f) : X.functionField) = n • (f : X.functionField) := rfl
+
+@[simp] lemma coe_zsmul (f : carrier D U) (n : ℤ) :
+    (↑(n • f) : X.functionField) = n • (f : X.functionField) := rfl
+
+instance : AddCommGroup (carrier D U) :=
+  Injective.addCommGroup (M₁ := carrier D U) (M₂ := X.functionField)
+    Subtype.val Subtype.coe_injective coe_zero coe_add coe_neg coe_sub coe_nsmul coe_zsmul
+
+def moduleNonempty
     (D : AlgebraicCycle X) (U : X.Opens) [Nonempty U] :
     Submodule Γ(X, U) X.functionField where
-  carrier :=
-    have : Algebra Γ(X, U) X.functionField :=
-      instAlgebraCarrierObjOppositeOpensCarrierCarrierCommRingCatPresheafOpOpensFunctionFieldOfNonemptyToScheme X U
-    carrier D U
-  add_mem' := add_mem h' D U
-  zero_mem' := zero_mem D U
-  smul_mem' := smul_mem D U
+  __ := addSubgroup D U
+  smul_mem' := smul_mema D U
 
-/--
-This should be a concrete definition of `𝒪(D) ⊗ 𝒪(D')` (though I have no reference for this so
-it's possible this is a mistake). I think this is more or less
-what we would get from just using the notion of sheafification for prelocal properties. However,
-this API is written in terms of concrete functions, and here we have elements of the function
-field.
+lemma memModuleNonempty {D : AlgebraicCycle X} {U : X.Opens} [Nonempty U] (f : carrier D U) :
+    (f : X.functionField) ∈ moduleNonempty D U := by simp
 
-What I like about this definition is the elements are just elements of the function field,
-which makes me think we could have a really nice notation for multiplying sections which
-plays nicely with the tensor product basically for free. That said, this might also be painless
-if we just use the tensor product of sheaves of modules on the nose (this, however, does not
-exist at the time of writing without a bit more work).
--/
-def tProdCarrier (D D': AlgebraicCycle X) (U : X.Opens) :=
-  {s : X.functionField | ∀ z ∈ U, ∃ V : X.Opens, V.1 ⊆ U.1 ∧ z ∈ V.1 ∧
-   ∃ f : carrier D V, ∃ g : carrier D' V, s = f * g}
+@[simps]
+def mk_of_mem_module_nonempty {D : AlgebraicCycle X} {U : X.Opens} [Nonempty U]
+    (f : X.functionField) (hf : f ∈ moduleNonempty D U) :
+    carrier D U := ⟨f, hf⟩
+
+instance [Nonempty U] : SMul Γ(X, U) (carrier D U) where
+  smul a f := mk_of_mem_module_nonempty (a • f) <| Submodule.smul_mem _ a (memModuleNonempty f)
+
+@[simp] lemma coe_smul [Nonempty U] (a : Γ(X, U)) (f : carrier D U) :
+    (↑(a • f) : X.functionField) = a • (f : X.functionField) := rfl
+
+def moduleInstNonempty (D : AlgebraicCycle X) (U : X.Opens) [Nonempty U] :
+  Module Γ(X, U) (carrier D U) :=
+  let v : carrier D U →+ X.functionField := {
+    toFun := Subtype.val
+    map_zero' := by simp
+    map_add' := by simp
+  }
+  Injective.module Γ(X, U) (M₂ := carrier D U) (M := X.functionField) v Subtype.coe_injective coe_smul
+
+instance : Subsingleton (carrier D ⊥) := by simp [carrier]
+instance instSubsingleTonOfEmpty (h : ¬ Nonempty U) : Subsingleton (carrier D U) := by
+  simp [carrier, h]
+
+def moduleInstEmpty (D : AlgebraicCycle X) (hU : ¬ Nonempty U) :
+    Module Γ(X, U) (carrier D U) where
+  smul a b := b
+  one_smul a := by aesop
+  mul_smul := by aesop
+  smul_zero := by aesop
+  smul_add := by aesop
+  add_smul a b c := by
+    have : Subsingleton (carrier D U) := instSubsingleTonOfEmpty hU
+    apply Subsingleton.elim
+  zero_smul a := by
+    have : Subsingleton (carrier D U) := instSubsingleTonOfEmpty hU
+    apply Subsingleton.elim
+/-
+def moduleInstEmpty (D : AlgebraicCycle X) : Module Γ(X, ⊥) (carrier D ⊥) where
+    smul a b := b
+    one_smul a := by aesop
+    mul_smul := by aesop
+    smul_zero := by aesop
+    smul_add := by aesop
+    add_smul a b c := by
+      apply Subsingleton.elim
+    zero_smul a := by
+      apply Subsingleton.elim-/
+instance instModuleCarrier : Module Γ(X, U) (carrier D U) := by
+  by_cases hU : Nonempty U
+  · exact moduleInstNonempty D U
+  · exact moduleInstEmpty D hU
+
+@[simp]
+lemma something [Nonempty U] {a : Γ(X, U)} {m : carrier D U} :
+    (a • m : X.functionField) = a • (m : X.functionField) := rfl
 
 /-
-What do we want this tensor product for?
+lemma something2 {U V : X.Opens} [Nonempty U] [Nonempty V]
+    (s1 : carrier D U) (s2 : carrier D V) ()-/
 
-We really want to define a notion of the tensor product for the purposes of twisting
-exact sequences. For the purpose, we want to define something like this:
+@[simp]
+lemma testing [hU : Nonempty U] :
+    (by infer_instance : Module Γ(X, U) (carrier D U)) = moduleInstNonempty D U := by
+  simp [instModuleCarrier, hU]
 
-def tProdCarrier (F G : Subsheaves of the constant sheaf of the function field) (U : X.Opens) :=
-  {s : X.functionField | ∀ z ∈ U, ∃ V : X.Opens, V.1 ⊆ U.1 ∧ z ∈ V.1 ∧
-    ∃ f : F V, ∃ g : G V, s = f*g}
-
-We should also think about how 𝒪ₜ should be defined for some effective divisor t. I believe this
-should just be the ideal sheaf of t, in which case it should be immediate that it is a subsheaf
-of the sheaf of rational functions K.
-
-I think this does indeed work, and that the below proofs really do represent the heart of the
-difficulties involved in proving things about tensor products in the cases we care about.
-
-I suppose we should also provide a proof that the tensor product of any subpresheaf of K with
-an ideal sheaf is again just that ideal sheaf, and I think it will look sort of similar to the
-below reasoning.
-
-Once we have that, our final piece will be to show that this operation we've constructed is exact.
-Of course, we could cheat a bit and just prove it's exact on sequences of the form
-0 → 𝒪(-D) → 𝒪 → 𝒪D → 0.
-
-I think we should consider writing some API generalising the current stuff about PreLocalPredicates.
-We certainly should be able to express elements of the function field as being regular functions
-which are not defined everywhere. (When I say regular functions here, I mean sections of 𝒪, but
-in mathlib these are implemented as dependant functions from x : U to the stalk at x). I guess the
-empty type is as good a type as any, so this approach should generalise to this context, though the
-thought of implementing this stuff makes me very tired.
--/
-
-
-/--
-We can now define what we mean by 𝒪(D + D') = 𝒪(D) ⊗ 𝒪(D'). I believe this should be an equality
-on the nose with the definitions we have set up, rather than just being an isomorphism.
--/
-lemma picGroup (D D' : AlgebraicCycle X) (U : X.Opens) :
-    tProdCarrier D D' U = carrier (D + D') U := by
-  simp[tProdCarrier, carrier]
-  ext a
-  simp only [Set.mem_setOf_eq]
-  constructor
-  · /-
-    Any function which is locally a product of sections of D and D' is globally a section of D + D'.
-    -/
-    intro h ha z
-    by_cases o : z ∈ U
-    · specialize h z o
-      obtain ⟨V, VinU, zinV, hV⟩ := h
-      obtain ⟨f, hf⟩ := hV
-      obtain ⟨hf, hf2⟩ := hf
-      obtain ⟨g, hg, afg⟩ := hf2
-      subst afg
-      have fnez : f ≠ 0 := left_ne_zero_of_mul ha
-      specialize hf fnez z
-      have gnez : g ≠ 0 := right_ne_zero_of_mul ha
-      specialize hg gnez z
-
-      simp [locallyFinsuppWithin.restrict_eq_within _ _ _ o]
-      simp [locallyFinsuppWithin.restrict_eq_within _ _ _ zinV] at hf hg
-      rw [div_homomorphism f fnez g gnez]
+@[simp]
+lemma testing2 (hU : ¬ Nonempty U) :
+    (by infer_instance : Module Γ(X, U) (carrier D U)) = moduleInstEmpty D hU := by
+  simp [instModuleCarrier, hU]
+/-
+instance : Module Γ(X, U) (carrier D U) := by
+  by_cases hU : Nonempty U
+  · exact moduleInstNonempty D U
+  · have : U = ⊥ := by
+      have : ¬ U.1.Nonempty := by aesop
+      rw [Set.not_nonempty_iff_eq_empty] at this
       simp_all
-      omega
-    · simp [locallyFinsuppWithin.restrict_eq_zero _ _ _ o]
-  · /-
-    This part is a bit more tricky. Given a section `s` of `𝓞(D + D')`, we need to show that for any
-    `z : X`, there is a neighbourhood around which `s = f*g`, where `f` and `g` are sections of
-    `𝒪(D)` and `𝒪(D')` respectively.
-
-    In order to do this, we probably need that all local rings are UFDs.
-    This implies that there is some neighbourhood `U` around `z` where `s` is of the form `(h)|ᵤ`
-    for some rational function `h`. We also know in this context that all prime divisors of `U`
-    are just given by the prime ideals of `U`, and that these are all principal.
-    So we can factorise our rational function `h` using  the generators of these ideals.
-
-    It is necessary to get this nhd where we have something precisely principal. For example, if
-    we take X to be the projective line, D = -(0), D' = (0), then we want to work in U = X \ {∞}
-    so that we can guarantee that (x) + D ≥ 0 (since otherwise it would have a pole).
-    -/
-    intro h z hz
-    /-
-    We wish to say that there is a nhd around z where D is principal, and one where D' is principal
-    -/
+    rw [this]
+    exact moduleInstEmpty D-/
 
 
-    /-
-    The existence of these neighbourhoods should follow from the fact that all local rings are UFDs.
-    Namely, there should be some affine nhd around z which is a UFD, and hence
-    -/
-    have ex1 : ∃ U1 : X.Opens, ∃ f : X.functionField, ∃ hf : f ≠ 0,
-        z ∈ U1 ∧ restrict D (by simp : U1.1 ⊆ ⊤) = restrict (div f hf) (by simp : U1.1 ⊆ ⊤) := sorry
+end insts
 
-
-    have ex2 : ∃ U2 : X.Opens, ∃ g : X.functionField, ∃ hg : g ≠ 0,
-        z ∈ U2 ∧ restrict D' (by simp : U2.1 ⊆ ⊤) = restrict (div g hg) (by simp : U2.1 ⊆ ⊤) := sorry
-    obtain ⟨U1, f, fnez, zinU1, hf⟩ := ex1
-    obtain ⟨U2, g, gnez, zinU2, hg⟩ := ex2
-
-    /-
-    Suppose a = x, f = 2/x and g = x^2. Then, f*g = 2x, which has the same vanishing as a but is
-    not a.
-
-    Suppose ord (f/g) = ord (h/k) ↔ ord f - ord g = ord h - ord k.
-
-
-    In a fraction ring over a UFD, elements have a reduced fraction form (meaning the numerator
-    and denominator are relatively prime). I claim that these reduced fractions must differ by the
-    algebra map of a unit. If this is true, then we can take reduced fractions of `a` and `f*g`
-    to get that `a = u*(f*g)`, and so we can take `u*f` for our first function and `g` for our
-    second (or vice versa). This I think will prove our result.
-    -/
-
-    /-
-    Right, so at this point we have U1 in which D is (f), and U2 in which D' is (g), and U on which
-    our section a of 𝒪(D + D') lives.
-
-    We need to construct a as a product of elements of 𝒪(D) and 𝒪(D'). We should be able to say that on
-    W := U ⊓ U1 ⊓ U2, we have that D|W = (f)|W, D'|W = (g)|W, so (D+D')|W = ((f) + (g))|W = (f*g)|W.
-
-    At this point, we know that the order of vanising of a and f*g is going to be the same
-    everywhere in W. I claim this should mean that a and f*g differ only by a unit u of Γ(X, W),
-    so we can use u⁻¹ • f * g as our candidate.
-    -/
-    use U ⊓ U1 ⊓ U2
-    constructor
-    · refine inf_le_of_left_le ?_
-      refine inf_le_of_left_le ?_
-      exact fun ⦃a⦄ a ↦ a
-    · constructor
-      · simp_all
-      · use f
-        constructor
-        · intro hf
-
-          sorry
-        · use g
-          constructor
-          · sorry
-          ·
-            /-
-
-
-            This may not be true, so I don't think we can use f and g on the nose. However, I think
-            it's true that a and f*g can only differ by multiplciation by a unit.
-
-            So we want some lemma saying (f) = (g) ↔ <f> = <g>. However, what precisely do we mean
-            by this? Potentially we want to say that f and g differ by scalar multiplication by
-            an element of `Γ(X, V)` (where `V` is the set where all these things are defined).
-
-            I doubt it, since in an affine nhd, we certainly can't multiply by any function without
-            changing the order of vanishing.
-
-            I think we need to show the existence of an actual regular function, and we need U1 and
-            U2 to be affine. The problem is, if we need to do this then this method doesn't work,
-            since this would mean we can't have sections with negative vanishing at z.
-
-
-            At this point we know that (a) = (f * g), and I claim that this should mean that this
-            must mean that there is some u1 and u2 such that a = u1*f * u2*g. So we need to come
-            up with even more order of vanishing api I think.
-
-
-
-
-            We know that for any z, ord f z = ord g z implies f and g differ by a unit in R
-            in the local ring at R. We now need to lift that to something global.
-
-            I'm wondering if we even need it in all local rings. E.g. if we have in the stalk
-            at z that f = u • g, can this just be lifted globally?
-
-            Well, this is true, but again not stritly what we want, since f and g may not literally
-            be elements of the stalk at z, just elements of its fraction field.
-
-
-            -/
-
-            sorry
-
-namespace Presheaf
-open Classical in
 noncomputable
 def obj (D : AlgebraicCycle X) (U : (TopologicalSpace.Opens ↥X)ᵒᵖ) :
-    ModuleCat ↑(X.ringCatSheaf.val.obj U) :=
-  if _ : Nonempty ↑↑(unop U)
-  then ModuleCat.of (↑(X.ringCatSheaf.val.obj U)) <| module h' D (unop U)
-  else ModuleCat.of (↑(X.ringCatSheaf.val.obj U)) PUnit
+    ModuleCat (X.ringCatSheaf.val.obj U) := .of Γ(X, unop U) <| carrier D (unop U)
 
-def obj_pos (D : AlgebraicCycle X) (U : (TopologicalSpace.Opens ↥X)ᵒᵖ) [hU : Nonempty ↑↑(unop U)] :
-    obj h' D U = (ModuleCat.of (↑(X.ringCatSheaf.val.obj U)) <| module h' D (unop U)) := dif_pos hU
+open Classical in
+lemma _root_.Function.locallyFinsuppWithin_le_iff {X Y : Type*} [TopologicalSpace X] {U : Set X}
+    [Zero Y] [Lattice Y] (D D' : locallyFinsuppWithin U Y) : D ≤ D' ↔ ∀ z ∈ U, D z ≤ D' z :=
+  ⟨fun h z _ ↦ h z, fun h z ↦ if hz : z ∈ U then h z hz else by simp [hz]⟩
 
-def obj_neg (D : AlgebraicCycle X) (U : (TopologicalSpace.Opens ↥X)ᵒᵖ)
-    (hU : ¬ Nonempty ↑↑(unop U)) :
-    obj h' D U = ModuleCat.of (↑(X.ringCatSheaf.val.obj U)) PUnit := dif_neg hU
+lemma mapFunProof (D : AlgebraicCycle X) {U V : X.Opens}
+    (r : V ≤ U) [hV : Nonempty V] (f : X.functionField) (hf : f ∈ carrier D U) :
+    f ∈ carrier D V := by
+  intro h
+  specialize hf h
+  refine ⟨hV, ?_⟩
+  simp
+  rw [Function.locallyFinsuppWithin_le_iff]
+  intro z hz
+  have := hf.2 z
+  simpa [restrict_apply, hz, r hz] using this
 
+open Classical in
+noncomputable
+def mapFun (D : AlgebraicCycle X) {U V : X.Opens} (r : V ≤ U) : carrier D U → carrier D V :=
+  fun ⟨f, hf⟩ ↦ if hV : Nonempty V then ⟨f, mapFunProof D r f hf⟩ else ⟨0, by simp [carrier]⟩
+  /-intro ⟨f, hf⟩
+  by_cases hV : Nonempty V
+  · refine ⟨f, mapFunProof D r f hf⟩
+  · exact ⟨0, by simp⟩-/
+
+
+noncomputable
+def map (D : AlgebraicCycle X) {U V : (TopologicalSpace.Opens ↥X)ᵒᵖ} (r : U ⟶ V) :
+    obj D U ⟶ (ModuleCat.restrictScalars (X.ringCatSheaf.val.map r).hom).obj (obj D V) := by
+  apply ModuleCat.ofHom (Y := (ModuleCat.restrictScalars (X.ringCatSheaf.val.map r).hom).obj (obj D V))
+  exact {
+    toFun := mapFun D (leOfHom (unop r))
+    map_add' x y := by
+      by_cases hV : Nonempty V.unop
+      · simp [mapFun, hV]
+        rfl
+      · simp [mapFun, hV]
+        rfl
+
+    map_smul' m a := by
+      by_cases hV : Nonempty V.unop
+      · have hU : Nonempty U.unop := sorry
+
+
+        simp only [sheafCompose_obj_val, Functor.comp_obj, CommRingCat.forgetToRingCat_obj,
+          Functor.comp_map, CommRingCat.forgetToRingCat_map_hom, mapFun, hV, ↓reduceDIte, op_unop,
+          testing, RingHom.id_apply, moduleInstNonempty]
+        apply Subtype.ext
+        simp
+        unfold_projs
+        simp [mk_of_mem_module_nonempty]
+
+        sorry
+      · simp [mapFun, hV]
+        apply Subtype.ext
+        #check ModuleCat.restrictScalars
+        sorry
+  }
+
+
+/-
 lemma mapPropertyNonempty (D : AlgebraicCycle X) {U V : (TopologicalSpace.Opens ↥X)ᵒᵖ}
     (r : U ⟶ V) [hU : Nonempty U.unop] [hV : Nonempty V.unop]
-    (f : module h' D (unop U)) : ↑f ∈ module h' D (unop V) := by
+    (f : moduleNonempty h' D (unop U)) : ↑f ∈ moduleNonempty h' D (unop V) := by
   obtain ⟨f, hf⟩ := f
-  simp [module]
+  simp [moduleNonempty]
   intro fnez
   specialize hf fnez
   intro z
@@ -367,18 +400,57 @@ lemma mapPropertyNonempty (D : AlgebraicCycle X) {U V : (TopologicalSpace.Opens 
 
 def mapFunNonempty (D : AlgebraicCycle X) {U V : (TopologicalSpace.Opens ↥X)ᵒᵖ}
     (r : U ⟶ V) [hU : Nonempty U.unop] [hV : Nonempty V.unop]
-    (f : module h' D (unop U)) :
+    (f : moduleNonempty h' D (unop U)) :
     ((ModuleCat.restrictScalars (RingCat.Hom.hom (X.ringCatSheaf.val.map r))).obj
-    (ModuleCat.of ↑(X.ringCatSheaf.val.obj V) ↥(module h' D (unop V)))) :=
+    (ModuleCat.of ↑(X.ringCatSheaf.val.obj V) ↥(moduleNonempty h' D (unop V)))) :=
+  ⟨f, mapPropertyNonempty h' D r f⟩-/
+/-
+namespace Presheaf
+open Classical in
+noncomputable
+def obj (D : AlgebraicCycle X) (U : (TopologicalSpace.Opens ↥X)ᵒᵖ) :
+    ModuleCat ↑(X.ringCatSheaf.val.obj U) :=
+  if _ : Nonempty ↑↑(unop U)
+  then ModuleCat.of (↑(X.ringCatSheaf.val.obj U)) <| moduleNonempty h' D (unop U)
+  else ModuleCat.of (↑(X.ringCatSheaf.val.obj U)) PUnit-/
+/-
+def obj_pos (D : AlgebraicCycle X) (U : (TopologicalSpace.Opens ↥X)ᵒᵖ) [hU : Nonempty ↑↑(unop U)] :
+    obj h' D U = (ModuleCat.of (↑(X.ringCatSheaf.val.obj U)) <| moduleNonempty h' D (unop U)) := dif_pos hU
+
+def obj_neg (D : AlgebraicCycle X) (U : (TopologicalSpace.Opens ↥X)ᵒᵖ)
+    (hU : ¬ Nonempty ↑↑(unop U)) :
+    obj h' D U = ModuleCat.of (↑(X.ringCatSheaf.val.obj U)) PUnit := dif_neg hU-/
+
+/-
+lemma mapPropertyNonempty (D : AlgebraicCycle X) {U V : (TopologicalSpace.Opens ↥X)ᵒᵖ}
+    (r : U ⟶ V) [hU : Nonempty U.unop] [hV : Nonempty V.unop]
+    (f : moduleNonempty h' D (unop U)) : ↑f ∈ moduleNonempty h' D (unop V) := by
+  obtain ⟨f, hf⟩ := f
+  simp [moduleNonempty]
+  intro fnez
+  specialize hf fnez
+  intro z
+  by_cases o : z ∈ unop V
+  · simp [locallyFinsuppWithin.restrict_eq_within _ _ _ o]
+    specialize hf z
+    have : z ∈ unop U := le_of_op_hom r o
+    simpa [locallyFinsuppWithin.restrict_eq_within _ _ _ this] using hf
+  · simp [locallyFinsuppWithin.restrict_eq_zero _ _ _ o]
+
+def mapFunNonempty (D : AlgebraicCycle X) {U V : (TopologicalSpace.Opens ↥X)ᵒᵖ}
+    (r : U ⟶ V) [hU : Nonempty U.unop] [hV : Nonempty V.unop]
+    (f : moduleNonempty h' D (unop U)) :
+    ((ModuleCat.restrictScalars (RingCat.Hom.hom (X.ringCatSheaf.val.map r))).obj
+    (ModuleCat.of ↑(X.ringCatSheaf.val.obj V) ↥(moduleNonempty h' D (unop V)))) :=
   ⟨f, mapPropertyNonempty h' D r f⟩
 
 lemma mapFun_add (D : AlgebraicCycle X) {U V : (TopologicalSpace.Opens ↥X)ᵒᵖ}
-    (r : U ⟶ V) [hU : Nonempty U.unop] [hV : Nonempty V.unop] (f g : ↥(module h' D (unop U))) :
-    mapFunNonempty h' D r (f + g) = mapFunNonempty h' D r f + mapFunNonempty h' D r g := rfl
-
+    (r : U ⟶ V) [hU : Nonempty U.unop] [hV : Nonempty V.unop] (f g : ↥(moduleNonempty h' D (unop U))) :
+    mapFunNonempty h' D r (f + g) = mapFunNonempty h' D r f + mapFunNonempty h' D r g := rfl-/
+/-
 lemma mapFun_smul (D : AlgebraicCycle X) {U V : (TopologicalSpace.Opens ↥X)ᵒᵖ}
     (r : U ⟶ V) [hU : Nonempty U.unop] [hV : Nonempty V.unop] (a : ↑(X.sheaf.val.obj U))
-    (f : (module h' D (unop U))) : mapFunNonempty h' D r (a • f) =
+    (f : (moduleNonempty h' D (unop U))) : mapFunNonempty h' D r (a • f) =
     a • mapFunNonempty h' D r f := by
   /-
   I believe this to be a problem of typeclass synthesis.
@@ -406,8 +478,9 @@ lemma mapFun_smul (D : AlgebraicCycle X) {U V : (TopologicalSpace.Opens ↥X)ᵒ
   /-
   This is hell
   -/
-  sorry
+  sorry-/
 
+/-
 open Classical in
 noncomputable
 def mapNonempty (D : AlgebraicCycle X) {U V : (TopologicalSpace.Opens ↥X)ᵒᵖ}
@@ -417,7 +490,7 @@ def mapNonempty (D : AlgebraicCycle X) {U V : (TopologicalSpace.Opens ↥X)ᵒ�
   simp only [obj, hU, hV]
   apply ModuleCat.ofHom (Y := (ModuleCat.restrictScalars
                 (RingCat.Hom.hom (X.ringCatSheaf.val.map r))).obj
-                (ModuleCat.of ↑(X.ringCatSheaf.val.obj V) ↥(module h' D (unop V))))
+                (ModuleCat.of ↑(X.ringCatSheaf.val.obj V) ↥(moduleNonempty h' D (unop V))))
   exact {
     toFun := mapFunNonempty h' D r
     map_add' := mapFun_add h' D r
@@ -473,8 +546,8 @@ def mapEmpty_id (D : AlgebraicCycle X) (U : (TopologicalSpace.Opens ↥X)ᵒᵖ)
   intro x
   let k := obj_neg h' D U hU
   simp [mapEmpty]
-  sorry
-
+  sorry-/
+/-
 open Classical in
 noncomputable
 def map (D : AlgebraicCycle X) {U V : (TopologicalSpace.Opens ↥X)ᵒᵖ}
@@ -487,47 +560,50 @@ def map (D : AlgebraicCycle X) {U V : (TopologicalSpace.Opens ↥X)ᵒᵖ}
        else mapEmptyRight h' D r hV
   else if hV : Nonempty V.unop
        then mapEmptyLeft h' D r hU
-       else mapEmpty h' D r hU hV
+       else mapEmpty h' D r hU hV-/
 
 def map_id (D : AlgebraicCycle X) (U : (TopologicalSpace.Opens ↥X)ᵒᵖ) :
-    map h' D (𝟙 U) = (ModuleCat.restrictScalarsId' (RingCat.Hom.hom (X.ringCatSheaf.val.map (𝟙 U)))
-    (congrArg RingCat.Hom.hom (X.ringCatSheaf.val.map_id U))).inv.app (obj h' D U) := by
+    map D (𝟙 U) = (ModuleCat.restrictScalarsId' (RingCat.Hom.hom (X.ringCatSheaf.val.map (𝟙 U)))
+    (congrArg RingCat.Hom.hom (X.ringCatSheaf.val.map_id U))).inv.app (obj D U) := by
   simp [map]
-  split_ifs
+  sorry
+  /-split_ifs
   · exact mapNonempty_id h' D U
   · rename_i hU
-    exact mapEmpty_id h' D U hU
+    exact mapEmpty_id h' D U hU-/
 
 def map_comp (D : AlgebraicCycle X)
   {X_1 Y Z : (TopologicalSpace.Opens ↥X)ᵒᵖ} (f : X_1 ⟶ Y) (g : Y ⟶ Z) :
-  map h' D (f ≫ g) = map h' D f ≫
-    (ModuleCat.restrictScalars (RingCat.Hom.hom (X.ringCatSheaf.val.map f))).map (map h' D g) ≫
+  map D (f ≫ g) = map D f ≫
+    (ModuleCat.restrictScalars (RingCat.Hom.hom (X.ringCatSheaf.val.map f))).map (map D g) ≫
     (ModuleCat.restrictScalarsComp' (RingCat.Hom.hom (X.ringCatSheaf.val.map f))
     (RingCat.Hom.hom (X.ringCatSheaf.val.map g))
     (RingCat.Hom.hom (X.ringCatSheaf.val.map (f ≫ g)))
-    (congrArg RingCat.Hom.hom (X.ringCatSheaf.val.map_comp f g))).inv.app (obj h' D Z) := sorry
+    (congrArg RingCat.Hom.hom (X.ringCatSheaf.val.map_comp f g))).inv.app (obj D Z) := sorry
 
 open Classical in
 noncomputable
 def presheaf (D : AlgebraicCycle X) : PresheafOfModules X.ringCatSheaf.val where
-  obj := obj h' D
-  map := map h' D
-  map_id := map_id h' D
-  map_comp := map_comp h' D
+  obj := obj D
+  map := map D
+  map_id := map_id D
+  map_comp := map_comp D
 
 lemma presheaf.obj_eq (D : AlgebraicCycle X) (U : (TopologicalSpace.Opens ↥X)ᵒᵖ) :
-    (presheaf h' D).obj U = obj h' D U := rfl
+    (presheaf D).obj U = obj D U := rfl
 
 lemma presheaf.obj_eq' (D : AlgebraicCycle X) (U : (TopologicalSpace.Opens ↥X)ᵒᵖ) :
-    (presheaf h' D).presheaf.obj U = (forget₂ _ _).obj (obj h' D U) := rfl
+    (presheaf D).presheaf.obj U = (forget₂ _ _).obj (obj D U) := rfl
 
 lemma presheaf.map_eq (D : AlgebraicCycle X) {U V : (TopologicalSpace.Opens ↥X)ᵒᵖ}
-    (r : U ⟶ V) : (presheaf h' D).map r = map h' D r := rfl
+    (r : U ⟶ V) : (presheaf D).map r = map D r := rfl
 
-
+set_option linter.unusedVariables.analyzeTactics true
 lemma presheaf.map_eq' (D : AlgebraicCycle X) {U V : (TopologicalSpace.Opens ↥X)ᵒᵖ}
-    (r : U ⟶ V) : (presheaf h' D).presheaf.map r =
-    AddCommGrp.ofHom (AddMonoidHom.mk' (map h' D r) (by simp)) := rfl
+    (r : U ⟶ V) : (presheaf D).presheaf.map r =
+    AddCommGrp.ofHom (AddMonoidHom.mk' (map D r) (by simp)) := rfl
+
+
 /-
 AddCommGrp.ofHom <| AddMonoidHom.mk' (M.map f) (by simp)
 -/
@@ -535,15 +611,67 @@ AddCommGrp.ofHom <| AddMonoidHom.mk' (M.map f) (by simp)
 --open Topology
 open Presheaf
 lemma isSheaf (D : AlgebraicCycle X) :
-    TopCat.Presheaf.IsSheaf (presheaf h' D).presheaf := by
+    TopCat.Presheaf.IsSheaf (presheaf D).presheaf := by
+
   rw[TopCat.Presheaf.isSheaf_iff_isSheafUniqueGluing]
   intro I 𝒰 s hs
 
   simp [TopCat.Presheaf.IsGluing, presheaf.map_eq', map]
-  wlog h : (∀ i : I, Nonempty (𝒰 i))
+  wlog h : (∀ i : I, Nonempty (𝒰 i)) ∧ Nonempty I
+  · sorry
+  obtain ⟨i⟩ := h.2
+
+  --let ⟨a, b⟩ := s i
+  let sec : carrier D (iSup 𝒰) := {
+    val := (s i).1
+    property := sorry
+  }
+  use sec
+  simp
+  constructor
+  · intro j
+    unfold mapFun
+    simp [sec, h.1 j]
+    change ⟨_, _⟩ = s j
+    apply Subtype.ext
+    simp
+
+    /-
+    We should write a lemma which says that there is a J and a map φ : J → I
+    such that φ ≫ s
+    -/
+
+
+
+
+    /-
+    Here the goal is now something sensible. The idea is that
+    the `s is` glue into a global section `sec`, and because we're
+    on an irreducible space there must be a chain of opens
+    connecting `𝒰 i` and `𝒰 j`. Since we must have the functions
+    agree on all the intersections, we win.
+
+    Formally, how should we write this? Well, I think it should
+    be something like this.
+    -/
+    have := hs i j
+    --simp [presheaf] at hs
+
+    --unfold map mapFun at hs
+
+    --simp [h.1 i, h.1 j] at hs
+
+
+
+    sorry
+  · intro s' h
+    sorry
+  /-wlog h : (∀ i : I, Nonempty (𝒰 i))
   · sorry
   simp_rw [presheaf.obj_eq', obj] at s
-  simp at s
+  simp at s-/
+
+
   /-
   So what should we take as our section? It
   -/
@@ -576,9 +704,9 @@ lemma isSheaf (D : AlgebraicCycle X) :
           (presheaf h' D).presheaf).mp
       ?_
   intro a b-/
-  sorry
+  --sorry
 
-end Presheaf
+--end Presheaf
 
 namespace Sheaf
 

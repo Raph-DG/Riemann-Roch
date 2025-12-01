@@ -219,14 +219,22 @@ def div [IsIntegral X] [nt : IsLocallyNoetherian X]
     supportWithinDomain' := by simp
     supportLocallyFiniteWithinDomain' := div_locally_finite f hf
 
-
+@[simp]
 lemma div_eq_zero_of_coheight_ne_one [IsIntegral X] [IsLocallyNoetherian X] (f : X.functionField)
     (hf : f ≠ 0) (Z : X) (hZ : coheight Z ≠ 1) : div f hf Z = 0 := dif_neg hZ
-
+@[simp]
 lemma div_eq_ord_of_coheight_eq_one [IsIntegral X] [IsLocallyNoetherian X] (f : X.functionField)
     (hf : f ≠ 0) (Z : X) (hZ : coheight Z = 1) :
     div f hf Z = Multiplicative.toAdd (WithZero.unzero (Scheme.ord_ne_zero hZ hf)) := dif_pos hZ
 
+lemma div_le_iff [IsIntegral X] [IsLocallyNoetherian X] (f : X.functionField)
+    (hf : f ≠ 0) {D : AlgebraicCycle X} (hD : ∀ z : X, coheight z ≠ 1 → D z ≥ 0):
+    div f hf ≤ D ↔ ∀ z : X, coheight z = 1 → div f hf z ≤ D z := by
+  refine ⟨fun h z _ ↦ h z, fun h z ↦ if hz : coheight z = 1 then h z hz else ?_⟩
+  simp [div_eq_zero_of_coheight_ne_one _ _ _ hz]
+  exact hD z hz
+
+@[simp]
 theorem div_homomorphism [IsIntegral X] [h : IsLocallyNoetherian X]
     (f : X.functionField) (hf : f ≠ 0) (g : X.functionField) (hg : g ≠ 0) :
     div (f * g) (by simp_all) = div f hf + div g hg := by
@@ -234,6 +242,20 @@ theorem div_homomorphism [IsIntegral X] [h : IsLocallyNoetherian X]
   suffices (div (f*g) (by simp_all)).toFun a = (div f hf).toFun a + (div g hg).toFun a from this
   simp only [top_eq_univ, div, map_mul]
   aesop (add simp unzero_mul)
+
+@[simp]
+theorem div_neg [IsIntegral X] [h : IsLocallyNoetherian X]
+    (f : X.functionField) (hf : f ≠ 0) :
+    div (- f) (by simp_all) = div f hf := by
+  suffices div (-1 * f) (by simp_all) = div f hf by sorry
+  have : (-1 : X.functionField) ≠ 0 := by grind
+  rw[div_homomorphism (-1) (by grind) f hf]
+  simp
+  /-
+  This follows from some more API
+  -/
+
+  sorry
 
 
 structure LocallyFiniteClosedFamily (X : Scheme.{u}) where
